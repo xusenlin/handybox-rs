@@ -1,0 +1,30 @@
+# Build-only toolchain for the Windows and Linux targets. Nothing from this
+# container ships with the application; it only provides cross linkers and the
+# Linux desktop development libraries that Slint's winit backend links against.
+FROM rust:1.88.0-slim-bookworm
+RUN dpkg --add-architecture amd64 \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       build-essential pkg-config ca-certificates \
+       gcc-x86-64-linux-gnu g++-x86-64-linux-gnu \
+       gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
+       libfontconfig1-dev:amd64 libfreetype6-dev:amd64 \
+       libxkbcommon-dev:amd64 libxkbcommon-x11-dev:amd64 libwayland-dev:amd64 \
+       libx11-dev:amd64 libx11-xcb-dev:amd64 libxcb1-dev:amd64 \
+       libxcursor-dev:amd64 libxi-dev:amd64 libxrandr-dev:amd64 \
+       libgl1-mesa-dev:amd64 libegl1-mesa-dev:amd64 \
+    && rm -rf /var/lib/apt/lists/*
+RUN rustup target add x86_64-pc-windows-gnu x86_64-unknown-linux-gnu
+# rust-toolchain.toml also requests these; baking them in keeps every container
+# run from re-downloading them.
+RUN rustup component add clippy rustfmt
+ENV CARGO_TARGET_DIR=/build \
+    CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
+    CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER=x86_64-linux-gnu-gcc \
+    CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc \
+    CXX_x86_64_pc_windows_gnu=x86_64-w64-mingw32-g++ \
+    CC_x86_64_unknown_linux_gnu=x86_64-linux-gnu-gcc \
+    CXX_x86_64_unknown_linux_gnu=x86_64-linux-gnu-g++ \
+    PKG_CONFIG_ALLOW_CROSS=1 \
+    PKG_CONFIG_LIBDIR_x86_64_unknown_linux_gnu=/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
+WORKDIR /src

@@ -1,0 +1,61 @@
+import { Theme } from "../theme.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+
+// A floating notice. It lives outside the page layout and is never created or
+// destroyed, so appearing and disappearing cannot reflow the content beneath it
+// or take space from the Markdown panel.
+export component Toast inherits Rectangle {
+    in property <string> message;
+    in property <bool> error;
+    callback dismissed();
+
+    private property <bool> shown: root.message != "";
+
+    width: min(row.preferred-width, 620px);
+    height: 44px;
+    border-radius: 10px;
+    background: root.error ? #fff0ee : #edf6f1;
+    border-width: 1px;
+    border-color: root.error ? #f0cac5 : #cde4d8;
+    opacity: root.shown ? 1 : 0;
+    animate opacity { duration: 160ms; easing: ease-out; }
+    // Nudge upwards as it fades in rather than appearing flat.
+    y: root.base-y + (root.shown ? 0px : 8px);
+    animate y { duration: 160ms; easing: ease-out; }
+    in property <length> base-y;
+
+    accessible-role: text;
+    accessible-label: root.message;
+
+    row := HorizontalLayout {
+        padding-left: 14px; padding-right: 16px; spacing: 9px;
+        Icon {
+            source: root.error ? Icons.alert : Icons.check-circle;
+            ink: root.error ? Theme.error : Theme.success;
+            width: 15px;
+        }
+        Text {
+            text: root.message;
+            color: root.error ? Theme.error : Theme.ink;
+            font-size: 12px;
+            vertical-alignment: center;
+            wrap: no-wrap; overflow: elide;
+        }
+    }
+
+    life := Timer {
+        // Errors linger: they are usually read, not just acknowledged.
+        interval: root.error ? 7s : 3s;
+        running: root.shown;
+        triggered => { root.dismissed(); }
+    }
+    // A replacement notice restarts the countdown instead of inheriting it.
+    changed message => { life.restart(); }
+
+    TouchArea {
+        enabled: root.shown;
+        mouse-cursor: pointer;
+        clicked => { root.dismissed(); }
+    }
+}

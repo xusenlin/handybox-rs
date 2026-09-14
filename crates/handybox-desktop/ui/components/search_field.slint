@@ -1,0 +1,35 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Icon } from "icon.slint";
+
+export component SearchField inherits Rectangle {
+    callback edited(string);
+    height: 36px;
+    background: input.has-focus ? Theme.surface : Theme.canvas;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.border;
+    forward-focus: input;
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: 8px;
+        Icon { source: Icons.search; width: 15px; }
+        Rectangle {
+            horizontal-stretch: 1;
+            input := TextInput {
+                width: parent.width; height: parent.height;
+                single-line: true; vertical-alignment: center;
+                color: Theme.ink; font-size: 12px;
+                accessible-label: I18n.search;
+                edited => { root.edited(self.text); }
+            }
+            // Span the field and align left: a child of a Rectangle is centred
+            // by default, which would leave the hint floating mid-field.
+            if input.text == "": Text {
+                text: I18n.search-placeholder; color: Theme.muted; font-size: 12px;
+                x: 0; width: parent.width; height: parent.height;
+                vertical-alignment: center; horizontal-alignment: left;
+            }
+        }
+    }
+}

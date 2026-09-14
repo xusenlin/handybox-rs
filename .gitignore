@@ -1,0 +1,7 @@
+# Cargo build output, at any depth: the workspace root and the build-only tools
+# under scripts/ each get their own.
+target/
+# Release archives, rebuilt by `task build`.
+/dist/
+.DS_Store
+*.log

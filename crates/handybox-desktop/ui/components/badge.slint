@@ -1,0 +1,13 @@
+import { Theme } from "../theme.slint";
+export component Badge inherits Rectangle {
+    in property <string> label;
+    in property <bool> highlighted: false;
+    height: 25px;
+    min-width: row.min-width;
+    border-radius: 5px;
+    background: root.highlighted ? Theme.tint : #eef2f5;
+    row := HorizontalLayout {
+        padding-left: 9px; padding-right: 9px;
+        Text { text: root.label; font-size: 11px; font-weight: 600; color: root.highlighted ? Theme.accent : Theme.muted; vertical-alignment: center; }
+    }
+}

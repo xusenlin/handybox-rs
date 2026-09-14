@@ -1,0 +1,14 @@
+import { Theme } from "../theme.slint";
+
+// Center a scalable SVG inside a layout cell. Decoration never replaces a label.
+export component Icon inherits Rectangle {
+    in property <image> source;
+    in property <color> ink: Theme.muted;
+    width: 18px;
+    preferred-height: 18px;
+    Image {
+        source: root.source; colorize: root.ink; image-fit: contain;
+        width: parent.width; height: min(parent.width, parent.height);
+        y: (parent.height - self.height) / 2;
+    }
+}

@@ -1,0 +1,16 @@
+import { Icons } from "../icons.slint";
+import { Icon } from "icon.slint";
+
+// Stable route -> visual asset. Keep presentation details out of handybox-core.
+export component ToolIcon inherits Icon {
+    in property <string> tool-key;
+    source: root.tool-key == "json" ? Icons.json
+        : root.tool-key == "crypto" ? Icons.lock
+        : root.tool-key == "diff" ? Icons.diff
+        : root.tool-key == "images" ? Icons.image
+        : root.tool-key == "archives" ? Icons.archive
+        : root.tool-key == "codes" ? Icons.scan
+        : root.tool-key == "cleanup" ? Icons.drive
+        : root.tool-key == "clipboard" ? Icons.clipboard
+        : Icons.document;
+}

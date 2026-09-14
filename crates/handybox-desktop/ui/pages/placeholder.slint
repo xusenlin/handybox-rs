@@ -1,0 +1,26 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { ToolItem } from "../types.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { EmptyState } from "../components/empty_state.slint";
+import { Action } from "../components/action.slint";
+import { Icons } from "../icons.slint";
+export component PlaceholderPage inherits VerticalLayout {
+    in property <ToolItem> tool;
+    callback open-documents();
+    padding: Theme.page-padding; spacing: 24px;
+    PageHeader { heading: root.tool.name; description: root.tool.subtitle; badge: I18n.planned; }
+    Rectangle {
+        background: Theme.surface; border-radius: Theme.radius; border-width: 1px; border-color: Theme.border;
+        VerticalLayout {
+            padding: 32px; spacing: 25px;
+            EmptyState { tool-key: root.tool.key; heading: I18n.planned-title; description: I18n.planned-hint; }
+            Rectangle { height: 1px; background: Theme.border; }
+            Text { text: I18n.roadmap; color: Theme.ink; font-size: 13px; font-weight: 600; }
+            Text { text: root.tool.capabilities; color: #536772; font-size: 14px; wrap: word-wrap; }
+            Rectangle { vertical-stretch: 1; }
+            Text { text: I18n.engine + root.tool.libraries; color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+            HorizontalLayout { alignment: start; Action { label: I18n.open-documents; icon: Icons.arrow-right; primary: true; clicked => { root.open-documents(); } } }
+        }
+    }
+}

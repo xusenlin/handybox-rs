@@ -1,0 +1,48 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Icons } from "../icons.slint";
+import { Icon } from "icon.slint";
+
+// Deliberately static. This bar is shared by every tool, so a transient notice
+// shown here would have to be cleared on navigation; outcomes belong to the page
+// that produced them.
+export component StatusBar inherits Rectangle {
+    in property <string> repository;
+    callback open-repository();
+    height: 35px; background: Theme.surface;
+    // Separator from the page above. Without an explicit y a child of a
+    // Rectangle is centred, which would draw the line straight through the text.
+    Rectangle { y: 0; height: 1px; width: parent.width; background: Theme.border; }
+    HorizontalLayout {
+        padding-left: 20px; padding-right: 20px; spacing: 9px;
+        Icon { source: Icons.shield; ink: Theme.success; width: 14px; }
+        Text {
+            text: I18n.status-note; color: Theme.muted; font-size: 11px;
+            vertical-alignment: center; overflow: elide; horizontal-stretch: 1;
+        }
+        // The repository URL is an address, not copy: never translated.
+        link := Rectangle {
+            width: row.preferred-width;
+            row := HorizontalLayout {
+                spacing: 6px;
+                Icon {
+                    source: Icons.github; width: 14px;
+                    ink: touch.has-hover ? Theme.accent : #9aa5ad;
+                }
+                Text {
+                    text: root.repository;
+                    color: touch.has-hover ? Theme.accent : #9aa5ad;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                }
+            }
+            touch := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { root.open-repository(); }
+            }
+            accessible-role: button;
+            accessible-label: root.repository;
+            accessible-action-default => { root.open-repository(); }
+        }
+    }
+}

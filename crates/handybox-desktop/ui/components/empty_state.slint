@@ -1,0 +1,21 @@
+import { Theme } from "../theme.slint";
+import { ToolIcon } from "tool_icon.slint";
+export component EmptyState inherits VerticalLayout {
+    in property <string> tool-key;
+    in property <string> heading;
+    in property <string> description;
+    alignment: center; spacing: 15px;
+    HorizontalLayout {
+        alignment: center;
+        if root.tool-key == "": Image {
+            width: 176px; height: 112px;
+            source: @image-url("../assets/document-preview.svg"); image-fit: contain;
+        }
+        if root.tool-key != "": Rectangle {
+            width: 76px; height: 76px; border-radius: 20px; background: Theme.tint; border-width: 1px; border-color: Theme.border;
+            ToolIcon { tool-key: root.tool-key; ink: Theme.accent; x: 21px; y: 21px; width: 34px; height: 34px; }
+        }
+    }
+    Text { text: root.heading; color: Theme.ink; font-size: 16px; font-weight: 600; horizontal-alignment: center; }
+    Text { text: root.description; color: Theme.muted; font-size: 12px; wrap: word-wrap; horizontal-alignment: center; }
+}

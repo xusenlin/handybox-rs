@@ -1,0 +1,15 @@
+import { Theme } from "../theme.slint";
+import { Badge } from "badge.slint";
+export component PageHeader inherits VerticalLayout {
+    in property <string> heading;
+    in property <string> description;
+    in property <string> badge;
+    spacing: 9px;
+    HorizontalLayout {
+        spacing: 12px;
+        Text { text: root.heading; color: Theme.ink; font-size: 27px; font-weight: 700; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+        Badge { label: root.badge; highlighted: true; }
+    }
+    Text { text: root.description; color: Theme.muted; font-size: Theme.body; wrap: word-wrap; }
+}

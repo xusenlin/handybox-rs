@@ -1,0 +1,36 @@
+import { Theme } from "../theme.slint";
+import { ToolIcon } from "tool_icon.slint";
+export component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> tool-key;
+    in property <bool> selected;
+    in property <bool> available;
+    callback clicked();
+    height: 43px;
+    border-radius: 7px;
+    background: root.selected ? Theme.tint : touch.has-hover ? #f1f4f6 : transparent;
+    border-width: focus.has-focus ? 1px : 0px;
+    border-color: Theme.accent;
+    forward-focus: focus;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+    HorizontalLayout {
+        padding-left: 12px; padding-right: 11px; spacing: 11px;
+        ToolIcon { width: 19px; tool-key: root.tool-key; ink: root.selected ? Theme.accent : Theme.muted; }
+        Text { text: root.label; color: root.selected ? Theme.accent : #4e5e6a; font-size: 13px; font-weight: root.selected ? 700 : 400; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+        Rectangle {
+            width: 5px;
+            Rectangle { width: 4px; height: 4px; y: (parent.height - self.height) / 2; border-radius: 2px; background: root.available ? transparent : #b7c0cc; }
+        }
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    focus := FocusScope {
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+}

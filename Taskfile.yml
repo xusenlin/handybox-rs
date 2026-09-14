@@ -1,0 +1,101 @@
+version: '3'
+
+vars:
+  NAME: handybox
+  # The version is written once, in Cargo.toml's [workspace.package].
+  VERSION:
+    sh: "grep -m1 '^version = ' Cargo.toml | cut -d '\"' -f2"
+  HOST:
+    sh: "rustc -vV | sed -n 's/^host: //p'"
+  OS:
+    sh: uname -s | tr 'A-Z' 'a-z' | sed -e 's/darwin/macos/' -e 's/mingw.*/windows/'
+  ARCH:
+    sh: uname -m | sed -e 's/aarch64/arm64/' -e 's/x86_64/x64/'
+  # 用 Dockerfile 的内容哈希作为 tag：改了工具链就自动重建镜像，
+  # 不必记得手动升 tag，也不会拿旧镜像继续构建。
+  IMAGE:
+    sh: "echo handybox-cross:$(shasum -a 256 scripts/Dockerfile.cross | cut -c1-12)"
+
+tasks:
+  default:
+    cmds: [task --list]
+
+  run:
+    desc: 运行桌面应用（task run -- examples/sample.rtf 可直接打开文档）
+    cmds:
+      - cargo run --locked -- {{.CLI_ARGS}}
+
+  build:
+    desc: 构建 macOS、Windows x64、Linux x64 三个平台的优化产物（zip）到 dist/
+    preconditions:
+      - sh: '[ "{{.OS}}" = "macos" ]'
+        msg: 三平台构建需要在 macOS 上运行；Apple 目标无法在容器内交叉编译。其他系统请用 task build:native 或 task build:cross。
+    cmds:
+      # 换版本号后清掉旧产物，避免 dist 里新旧混在一起发错文件。
+      - rm -rf dist/{{.NAME}}-* dist/SHA256SUMS
+      - task: build:native
+      - task: build:cross
+      - shasum -a 256 dist/{{.NAME}}-* | sed 's| dist/| |' > dist/SHA256SUMS
+      - ls -lh dist
+
+  build:native:
+    desc: 构建当前系统的优化产物到 dist/（macOS 产出可直接双击的 .app 压缩包）
+    cmds:
+      - mkdir -p dist
+      - cargo build --release --locked --target {{.HOST}}
+      # macOS 上裸二进制双击会拉起 Terminal，必须打成 .app 才是正常的应用。
+      - cmd: |
+          if [ "{{.OS}}" = "macos" ]; then
+            scripts/macos-bundle.sh target/{{.HOST}}/release/{{.NAME}} {{.VERSION}} {{.OS}}-{{.ARCH}}
+          else
+            install -m 755 target/{{.HOST}}/release/{{.NAME}} \
+              dist/{{.NAME}}-{{.VERSION}}-{{.OS}}-{{.ARCH}}
+            scripts/zip-binary.sh dist/{{.NAME}}-{{.VERSION}}-{{.OS}}-{{.ARCH}}
+          fi
+
+  build:cross:
+    desc: 用 Docker 交叉编译 Windows x64 和 Linux x64 的优化产物（zip）到 dist/
+    preconditions:
+      - sh: docker info
+        msg: 需要正在运行的 Docker 才能交叉编译 Windows 和 Linux。
+    cmds:
+      - mkdir -p dist
+      - docker image inspect {{.IMAGE}} >/dev/null 2>&1 || docker build -f scripts/Dockerfile.cross -t {{.IMAGE}} .
+      # 宿主和交叉目标各用各的 Cargo 缓存，互不覆盖。
+      - for:
+          - {target: x86_64-pc-windows-gnu, bin: handybox.exe, label: windows-x64.exe}
+          - {target: x86_64-unknown-linux-gnu, bin: handybox, label: linux-x64}
+        cmd: >
+          docker run --rm
+          -v "{{.ROOT_DIR}}:/src"
+          -v {{.NAME}}-cross-build:/build
+          -v {{.NAME}}-cross-registry:/usr/local/cargo/registry
+          {{.IMAGE}} sh -ec
+          'cargo build --release --locked --target {{.ITEM.target}};
+          cp /build/{{.ITEM.target}}/release/{{.ITEM.bin}} /src/dist/.partial;
+          chmod 755 /src/dist/.partial;
+          mv /src/dist/.partial /src/dist/{{.NAME}}-{{.VERSION}}-{{.ITEM.label}}'
+      - for: [windows-x64.exe, linux-x64]
+        cmd: scripts/zip-binary.sh dist/{{.NAME}}-{{.VERSION}}-{{.ITEM}}
+
+  icon:
+    desc: 由 assets/logo.png 重新生成两份圆角图标到 assets/（产物已提交，平时无需运行）
+    dir: scripts/icon
+    cmds:
+      - cargo run --release -q
+
+  test:
+    desc: 运行工作区测试
+    cmds:
+      - cargo test --workspace --locked
+
+  check:
+    desc: 格式与静态检查
+    cmds:
+      - cargo fmt --all -- --check
+      - cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  clean:
+    desc: 清空 dist/
+    cmds:
+      - rm -rf dist

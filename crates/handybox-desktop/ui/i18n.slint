@@ -1,0 +1,44 @@
+// Static UI copy. Rust updates chinese; every binding reacts in place.
+export global I18n {
+    in-out property <bool> chinese: false;
+    out property <string> window-title: chinese ? "HandyBox — 本地工具箱" : "HandyBox — Your local toolkit";
+    out property <string> file-hint: chinese ? "支持 Office、PDF、EPUB 等文档 · 自动识别格式" : "Office, PDF, EPUB and more · Automatically detects the format";
+    out property <string> brand-tagline: chinese ? "日常所需，触手可及" : "YOUR EVERYDAY TOOLKIT";
+    out property <string> mascot: chinese ? "HandyBox 吉祥物" : "HandyBox mascot";
+    out property <string> search: chinese ? "搜索工具" : "Search tools";
+    out property <string> settings: chinese ? "设置" : "Settings";
+    out property <string> language: chinese ? "语言" : "LANGUAGE";
+    out property <string> search-placeholder: chinese ? "搜索工具…" : "Search tools…";
+    out property <string> workspace: chinese ? "工作空间  /  9 个工具" : "WORKSPACE  /  9 TOOLS";
+    out property <string> no-matches: chinese ? "没有匹配的工具" : "No matching tools";
+    out property <string> local: chinese ? "专为本地处理设计" : "Local by design";
+    out property <string> privacy: chinese ? "无需账号，无需上传。" : "No accounts. No uploads.";
+    out property <string> built-with: chinese ? "v0.1.0  ·  使用 Slint 构建" : "v0.1.0  ·  Built with Slint";
+    out property <string> status-note: chinese ? "文档在本机处理，不联网、不上传" : "Processed on your device. No network, no uploads";
+    out property <string> source: chinese ? " / 源码" : " / SOURCE";
+    out property <string> copy: chinese ? "复制全文" : "Copy all";
+    out property <string> export: chinese ? "导出 .md" : "Export .md";
+    out property <string> converting-title: chinese ? "正在处理文档…" : "Working on your document…";
+    out property <string> empty-title: chinese ? "让内容焕然一新" : "A fresh start for your content";
+    out property <string> converting-hint: chinese ? "转换在后台进行，你可以继续浏览其他工具。" : "Conversion runs in the background. Feel free to explore other tools.";
+    out property <string> empty-hint: chinese ? "Markdown 将显示在这里，随时可以复制或导出。\n选择一份文档，即可开始。" : "Your Markdown will appear here, ready to copy or export.\nChoose a document to get started.";
+    out property <string> truncated: chinese ? "  ·  仅预览前 20 万字符，复制和导出保留全文。" : "  ·  Preview limited to 200k characters. Copy and export include everything.";
+    out property <string> drop: chinese ? "松开以转换文档" : "Drop to convert your document";
+    out property <string> choose: chinese ? "选择文档，或将文件拖到这里" : "Choose a document or drop it here";
+    out property <string> working: chinese ? "处理中…" : "Working…";
+    out property <string> browse: chinese ? "选择文件" : "Browse files";
+    out property <string> change-file: chinese ? "更换文件" : "Change file";
+    out property <string> documents-title: chinese ? "文档转换" : "Document converter";
+    out property <string> documents-description: chinese ? "将日常办公文档转换为清晰、易用的 Markdown。" : "From everyday documents to clean, portable Markdown.";
+    // Keep the label within the active UI font's coverage: U+2192 is absent from
+    // Helvetica Neue and would force a font-fallback query on every frame.
+    out property <string> documents-badge: chinese ? "文档 → Markdown" : "DOCUMENT TO MARKDOWN";
+    out property <string> formats: chinese ? "支持格式" : "FORMATS";
+    out property <string> documents-footnote: chinese ? "所有处理均在本机完成  ·  单文件最大 64 MiB  ·  扫描 PDF 需要 OCR（暂不支持）" : "Processed on your device  ·  Up to 64 MiB per file  ·  Scanned PDFs require OCR (not included)";
+    out property <string> planned: chinese ? "开发计划" : "PLANNED";
+    out property <string> planned-title: chinese ? "新工具正在准备中" : "A new tool is taking shape";
+    out property <string> planned-hint: chinese ? "文档转换现已可用。\n此工具尚未实现，以下为计划支持的能力。" : "Document conversion is ready today.\nThis tool is not implemented yet. Here is what is planned.";
+    out property <string> roadmap: chinese ? "计划能力" : "ON THE ROADMAP";
+    out property <string> engine: chinese ? "技术引擎  /  " : "Powered by  /  ";
+    out property <string> open-documents: chinese ? "试试文档转换" : "Try Document converter";
+}

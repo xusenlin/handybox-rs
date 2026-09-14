@@ -1,0 +1,76 @@
+import { I18n } from "../i18n.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { ToolItem } from "../types.slint";
+import { NavItem } from "nav_item.slint";
+import { Brand } from "brand.slint";
+import { SearchField } from "search_field.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { SettingsMenu } from "settings_menu.slint";
+export component Sidebar inherits Rectangle {
+    in property <[ToolItem]> tools;
+    in property <string> selected-key;
+    callback navigate(string);
+    callback search(string);
+    callback language-selected(bool);
+    width: 244px;
+    background: Theme.surface;
+    // The ScrollView reaches further right than the rest of the sidebar so its
+    // scrollbar sits near the edge; every other child adds the difference back,
+    // and left-aligned text needs no compensation.
+    VerticalLayout {
+        padding: 17px; padding-right: 6px; spacing: 14px;
+        HorizontalLayout {
+            // Hug the brand's own height: a nested layout would otherwise take a
+            // share of the leftover space and push the row down.
+            vertical-stretch: 0;
+            padding-top: 8px; padding-right: 11px; spacing: 6px;
+            Brand { horizontal-stretch: 1; }
+            // A fixed-size child is not centred on the cross axis by default,
+            // so centre it explicitly against the logo beside it.
+            VerticalLayout {
+                alignment: center;
+                SettingsMenu { selected(chinese) => { root.language-selected(chinese); } }
+            }
+        }
+        HorizontalLayout {
+            padding-right: 11px;
+            SearchField { edited(text) => { root.search(text); } }
+        }
+        Text { text: I18n.workspace; font-size: 10px; font-weight: 600; color: Theme.muted; }
+        ScrollView {
+            horizontal-stretch: 1; vertical-stretch: 1;
+            VerticalLayout {
+                // The scrollbar is an overlay on the right edge; keep the items
+                // clear of it instead of letting it sit on their rounded corner.
+                padding-right: 11px;
+                spacing: 4px;
+                for tool in root.tools: NavItem {
+                    label: tool.name; tool-key: tool.key; selected: tool.key == root.selected-key; available: tool.available;
+                    clicked => { root.navigate(tool.key); }
+                }
+                if root.tools.length == 0: Text { text: I18n.no-matches; color: Theme.muted; font-size: 12px; }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+        HorizontalLayout {
+            padding-right: 11px;
+            Rectangle {
+                height: 72px; border-radius: 9px; background: Theme.cream;
+                VerticalLayout {
+                    padding: 12px; spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 7px;
+                        Icon { source: Icons.shield; ink: Theme.accent; width: 15px; }
+                        Text { text: I18n.local; color: Theme.accent; font-size: 11px; font-weight: 600; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    Text { text: I18n.privacy; color: Theme.muted; font-size: 10px; }
+                }
+            }
+        }
+        Text { text: I18n.built-with; color: #929fa8; font-size: 10px; }
+    }
+    Rectangle { x: parent.width - 1px; width: 1px; height: parent.height; background: Theme.border; }
+}

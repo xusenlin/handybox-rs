@@ -1,0 +1,43 @@
+import { Theme } from "../theme.slint";
+import { Icon } from "icon.slint";
+
+export component Action inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked();
+    private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : Theme.ink;
+    height: 38px;
+    min-width: content.min-width;
+    // Buttons size to their label. Without this a layout hands them a share of
+    // the leftover width and they stretch across the row.
+    horizontal-stretch: 0;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: focus.has-focus ? Theme.accent : root.primary ? transparent : Theme.border;
+    background: !root.enabled ? #eef1f3 : root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : touch.has-hover ? Theme.canvas : Theme.surface;
+    forward-focus: focus;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    content := HorizontalLayout {
+        padding-left: 13px; padding-right: 13px; spacing: 7px;
+        if root.icon.width > 0: Icon { source: root.icon; ink: root.ink; width: 15px; }
+        Text {
+            text: root.label;
+            color: root.ink;
+            font-size: Theme.small; font-weight: 600;
+            vertical-alignment: center; horizontal-alignment: center;
+        }
+    }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    focus := FocusScope {
+        width: 0px; enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { root.clicked(); return accept; }
+            return reject;
+        }
+    }
+}

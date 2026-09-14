@@ -1,0 +1,101 @@
+import { Theme } from "../theme.slint";
+import { I18n } from "../i18n.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+
+// One menu row. Self-named languages stay recognizable regardless of the
+// active locale, so the labels are never translated.
+component Entry inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+    height: 30px;
+    border-radius: 6px;
+    background: touch.has-hover ? Theme.tint : transparent;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-checkable: true;
+    accessible-checked: root.active;
+    accessible-action-default => { root.clicked(); }
+    HorizontalLayout {
+        padding-left: 9px; padding-right: 9px; spacing: 7px;
+        Text {
+            text: root.label;
+            color: root.active ? Theme.accent : Theme.ink;
+            font-size: Theme.small;
+            font-weight: root.active ? 600 : 400;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; }
+        if root.active: Icon { source: Icons.check-circle; ink: Theme.accent; width: 14px; }
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// A single icon button rather than a row of language buttons: the sidebar
+// footer stays compact and the choice moves into a menu.
+export component SettingsMenu inherits Rectangle {
+    callback selected(bool);
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border-width: 1px;
+    border-color: focus.has-focus ? Theme.accent : transparent;
+    background: touch.has-hover ? Theme.tint : transparent;
+    forward-focus: focus;
+    accessible-role: button;
+    accessible-label: I18n.settings;
+    accessible-action-default => { menu.show(); }
+
+    Icon { source: Icons.settings; ink: Theme.muted; width: 17px; height: parent.height; }
+
+    touch := TouchArea { mouse-cursor: pointer; clicked => { menu.show(); } }
+    focus := FocusScope {
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { menu.show(); return accept; }
+            return reject;
+        }
+    }
+
+    // Opens downwards from the brand row, aligned to the button's right edge
+    // so it never reaches past the sidebar.
+    menu := PopupWindow {
+        x: root.width - self.width; y: root.height + 6px;
+        width: 148px;
+        close-policy: close-on-click-outside;
+        // No explicit height: the popup takes its size from this card, so
+        // binding the height back to the parent would be a cycle and collapse it.
+        Rectangle {
+            // Width is safe to bind: the popup's own width is a constant.
+            width: parent.width;
+            background: Theme.surface;
+            border-radius: 9px;
+            border-width: 1px;
+            border-color: Theme.border;
+            VerticalLayout {
+                padding: 5px; spacing: 1px;
+                // Indent to the entries' own text padding; x is owned by the
+                // layout, so the offset has to come from a wrapper.
+                HorizontalLayout {
+                    padding-left: 9px;
+                    Text {
+                        text: I18n.language;
+                        color: Theme.muted;
+                        font-size: 10px; font-weight: 600;
+                        height: 20px; vertical-alignment: center;
+                        horizontal-alignment: left;
+                    }
+                }
+                Entry {
+                    label: "English"; active: !I18n.chinese;
+                    clicked => { root.selected(false); menu.close(); }
+                }
+                Entry {
+                    label: "中文"; active: I18n.chinese;
+                    clicked => { root.selected(true); menu.close(); }
+                }
+            }
+        }
+    }
+}

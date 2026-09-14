@@ -1,0 +1,20 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+
+export component Brand inherits HorizontalLayout {
+    spacing: 10px;
+    // The derived icon already carries the rounded corners, so the sidebar mark
+    // and the Dock icon are exactly the same shape.
+    Image {
+        width: 46px; height: 46px;
+        source: @image-url("../../../../assets/app-icon.png");
+        image-fit: contain;
+        accessible-role: image;
+        accessible-label: I18n.mascot;
+    }
+    VerticalLayout {
+        alignment: center; spacing: 5px;
+        Text { text: "HandyBox"; font-size: 21px; font-weight: 700; color: Theme.ink; }
+        Text { text: I18n.brand-tagline; font-size: 9px; color: Theme.muted; }
+    }
+}

@@ -1,0 +1,35 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { FileCard } from "../components/file_card.slint";
+import { MarkdownPanel } from "../components/markdown_panel.slint";
+import { Badge } from "../components/badge.slint";
+export component DocumentsPage inherits VerticalLayout {
+    in property <string> filename;
+    in property <string> file-detail;
+    in property <[string]> markdown-lines;
+    in property <string> stats;
+    in property <bool> busy;
+    in property <bool> converting;
+    in property <bool> dragging;
+    in property <bool> has-result;
+    in property <bool> truncated;
+    callback choose();
+    callback copy();
+    callback save();
+    padding: Theme.page-padding; spacing: 20px;
+    PageHeader { heading: I18n.documents-title; description: I18n.documents-description; badge: I18n.documents-badge; }
+    FileCard { filename: root.filename; detail: root.file-detail; busy: root.busy; converting: root.converting; dragging: root.dragging; choose => { root.choose(); } }
+    HorizontalLayout {
+        spacing: 7px;
+        Text { text: I18n.formats; color: Theme.muted; font-size: 11px; vertical-alignment: center; }
+        for label in ["Word", "Excel", "PowerPoint", "PDF", "EPUB", "RTF", "CSV", "ODF"]: Badge { label: label; }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    MarkdownPanel {
+        markdown-lines: root.markdown-lines; stats: root.stats; has-result: root.has-result; busy: root.busy; converting: root.converting; truncated: root.truncated;
+        vertical-stretch: 1; min-height: 180px;
+        copy => { root.copy(); } save => { root.save(); }
+    }
+    Text { text: I18n.documents-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+}
