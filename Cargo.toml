@@ -1,9 +1,6 @@
 [workspace]
 members = ["crates/handybox-core", "crates/handybox-desktop"]
 default-members = ["crates/handybox-desktop"]
-# Build-time asset tool only; its output is committed, so it stays out of the
-# workspace and out of the application's dependency graph.
-exclude = ["scripts/icon"]
 resolver = "3"
 
 [workspace.package]

@@ -1,6 +1,6 @@
 # HandyBox
 
-<img src="assets/logo.png" alt="HandyBox mascot" width="88" height="88">
+<img src="assets/app-icon.png" alt="HandyBox mascot" width="88" height="88">
 
 English | [简体中文](README.zh-CN.md)
 
@@ -52,7 +52,6 @@ task test                       # workspace tests
 task build                      # all three platforms into dist/
 task build:native               # host platform only
 task build:cross                # Windows and Linux only
-task icon                       # regenerate the derived icons
 ```
 
 `task build` produces optimized, version-named archives in `dist/`, plus a `SHA256SUMS` manifest. Every platform ships as a zip, which roughly halves the download and keeps the three downloads consistent:
@@ -139,11 +138,9 @@ crates/
     ui/components/              # Reusable visual building blocks
     ui/pages/documents.slint    # Composes the converter page
     ui/pages/placeholder.slint  # Metadata-driven planned-tool page
-assets/logo.png                  # Untouched brand artwork
-assets/app-icon.png              # Derived rounded icon: sidebar and window
-assets/macos-icon.png            # Derived icon on Apple's grid: Dock and .icns
+assets/app-icon.png              # Rounded icon: sidebar and window
+assets/macos-icon.png            # Icon on Apple's grid: Dock and .icns
 Taskfile.yml                     # Run, check, test and release-build entry points
-scripts/icon/                    # Generates both icons; output is committed
 scripts/macos-bundle.sh          # Packages HandyBox.app into a zip
 scripts/zip-binary.sh            # Zips the Windows and Linux executables
 scripts/Dockerfile.cross         # Build-only Windows/Linux cross toolchain
@@ -173,18 +170,16 @@ The first release deliberately uses a small typed command/event bridge rather th
 
 ### Branding and icons
 
-The user-supplied `assets/logo.png` is the single, untouched source of the brand artwork; it is never cropped or recolored. The theme's navy accent and soft cream surface follow its palette.
+The brand artwork ships as two prepared icons. The theme's navy accent and soft cream surface follow their palette.
 
-That file is an opaque square, which reads as a hard-edged tile in a sidebar and looks wrong beside macOS Dock icons. [`scripts/icon`](scripts/icon) derives two rounded variants from it, both committed so a plain `cargo build` never runs the generator. Regenerate with `task icon` after changing the logo.
-
-| Derived file | Canvas | Artwork | Used by |
+| File | Canvas | Artwork | Used by |
 | --- | --- | --- | --- |
 | `assets/app-icon.png` | 256px | Fills the canvas | Sidebar `Brand`, Slint window icon |
 | `assets/macos-icon.png` | 512px | 80.5%, transparent margin | Runtime Dock icon, bundled `AppIcon.icns` |
 
-The margin follows Apple's icon grid (824 of 1024 points) and its 22.5% corner radius. Without it the Dock tile renders noticeably larger than every neighbouring application. The sidebar and window icons size their own box, so the same margin there would only shrink the mark, which is why the two variants exist.
+Both are rounded at the 22.37% radius macOS uses for application icons. The macOS variant additionally follows Apple's icon grid, where the artwork covers 824 of 1024 points and the rest is transparent; without that margin the Dock tile renders noticeably larger than every neighbouring application. The sidebar and window icons size their own box, so the same margin there would only shrink the mark, which is why there are two.
 
-Both canvases are deliberately small, because each file is compiled into the executable: 256px covers a 46pt sidebar mark on a 2x display and 512px covers the largest Dock tile. Every doubling roughly quadruples the embedded bytes — at 1024px the two icons alone added 1.7 MB to every binary.
+Both canvases are deliberately small, because each file is compiled into the executable: 256px covers a 46pt sidebar mark on a 2x display and 512px covers the largest Dock tile. Every doubling roughly quadruples the embedded bytes — at 1024px the two icons alone added 1.7 MB to every binary. Replacing the artwork means preparing both files at those sizes.
 
 `Brand` owns the sidebar identity. `Icon` displays and tints the bundled SVGs, while `ToolIcon` maps stable tool routes to icons in the desktop layer. `Action` accepts an optional image and retains its text label and keyboard/accessibility behavior. `SearchField`, status indicators, file actions and placeholders reuse these components. The SVGs are original project assets with a consistent 24 × 24 view box, 1.7px rounded strokes and no external fonts or network requests. The one exception is `github.svg`, GitHub's own mark, included under their brand guidance solely to label the link to this repository; it is a filled silhouette rather than a stroked outline. The larger document empty state has its own SVG illustration.
 

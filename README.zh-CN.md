@@ -1,6 +1,6 @@
 # HandyBox
 
-<img src="assets/logo.png" alt="HandyBox 吉祥物" width="88" height="88">
+<img src="assets/app-icon.png" alt="HandyBox 吉祥物" width="88" height="88">
 
 [English](README.md) | 简体中文
 
@@ -52,7 +52,6 @@ task test                       # 工作区测试
 task build                      # 三个平台，产物进 dist/
 task build:native               # 只构建当前系统
 task build:cross                # 只构建 Windows 和 Linux
-task icon                       # 重新生成派生图标
 ```
 
 `task build` 会在 `dist/` 下生成带版本号的优化压缩包，以及一份 `SHA256SUMS` 校验清单。三个平台统一发 zip：下载体积大约减半，也省得一个平台是压缩包、另外两个是裸文件：
@@ -139,11 +138,9 @@ crates/
     ui/components/              # 可复用的视觉构件
     ui/pages/documents.slint    # 组合出转换页面
     ui/pages/placeholder.slint  # 由元数据驱动的计划中工具页面
-assets/logo.png                  # 未经改动的品牌图形
-assets/app-icon.png              # 派生的圆角图标：侧边栏与窗口
-assets/macos-icon.png            # 按 Apple 网格派生的图标：Dock 与 .icns
+assets/app-icon.png              # 圆角图标：侧边栏与窗口
+assets/macos-icon.png            # 按 Apple 网格制作的图标：Dock 与 .icns
 Taskfile.yml                     # 运行、检查、测试与发布构建的入口
-scripts/icon/                    # 生成两份图标，产物已提交
 scripts/macos-bundle.sh          # 把 HandyBox.app 打包成压缩包
 scripts/zip-binary.sh            # 压缩 Windows 与 Linux 可执行文件
 scripts/Dockerfile.cross         # 仅用于构建的 Windows/Linux 交叉工具链
@@ -173,18 +170,16 @@ Slint 属性 ← 控制器 ← 50 ms 事件轮询 ← 结果通道
 
 ### 品牌与图标
 
-用户提供的 `assets/logo.png` 是品牌图形唯一且未经改动的来源，不做裁剪或改色。主题中的藏青强调色与柔和米色背景取自它的配色。
+品牌图形以两份做好的图标形式随仓库提供。主题中的藏青强调色与柔和米色背景取自它们的配色。
 
-该文件是不透明的正方形，放进侧边栏会是一块硬边方砖，在 macOS Dock 里也和其他应用图标格格不入。[`scripts/icon`](scripts/icon) 从它派生出两份圆角变体，均已提交到仓库，因此普通的 `cargo build` 不会运行这个生成器；更换 logo 后用 `task icon` 重新生成即可。
-
-| 派生文件 | 画布 | 图形占比 | 使用方 |
+| 文件 | 画布 | 图形占比 | 使用方 |
 | --- | --- | --- | --- |
 | `assets/app-icon.png` | 256px | 铺满画布 | 侧边栏 `Brand`、Slint 窗口图标 |
 | `assets/macos-icon.png` | 512px | 80.5%，四周透明留白 | 运行时 Dock 图标、打包的 `AppIcon.icns` |
 
-留白遵循 Apple 的图标网格（1024 中占 824）及其 22.5% 圆角半径。没有这圈留白，Dock 里的图标会明显比相邻应用大一号。而侧边栏和窗口图标是自己控制显示尺寸的，同样的留白只会让标识变小，这就是要分成两份的原因。
+两者都按 macOS 应用图标惯用的 22.37% 半径做了圆角。macOS 那份还额外遵循 Apple 的图标网格——图形占 1024 中的 824，其余透明；没有这圈留白，Dock 里的图标会明显比相邻应用大一号。而侧边栏和窗口图标是自己控制显示尺寸的，同样的留白只会让标识变小，这就是要分成两份的原因。
 
-两个画布都刻意做得很小，因为它们会被编译进可执行文件：256px 足够 2 倍屏下 46pt 的侧边栏标识和窗口图标，512px 足够最大的 Dock 图标。尺寸每翻一倍，嵌入的字节数大约变成四倍——之前用 1024px 时，仅这两个图标就给每个平台的二进制增加了 1.7 MB。
+两个画布都刻意做得很小，因为它们会被编译进可执行文件：256px 足够 2 倍屏下 46pt 的侧边栏标识和窗口图标，512px 足够最大的 Dock 图标。尺寸每翻一倍，嵌入的字节数大约变成四倍——之前用 1024px 时，仅这两个图标就给每个平台的二进制增加了 1.7 MB。更换图形时需要自行准备这两个尺寸的文件。
 
 `Brand` 负责侧边栏标识。`Icon` 负责展示并着色内置 SVG，`ToolIcon` 在桌面层把稳定的工具路由映射到图标。`Action` 接受可选图片，同时保留文字标签与键盘/无障碍行为。`SearchField`、状态指示器、文件操作和占位页都复用这些组件。这些 SVG 是项目原创资源，统一使用 24 × 24 视图框、1.7px 圆角描边，不依赖外部字体或网络请求。唯一的例外是 `github.svg`——它是 GitHub 自己的标识，按其品牌规范收录，仅用于标注指向本仓库的链接；它是实心剪影，不是描边图形。较大的文档空状态有自己的 SVG 插画。
 

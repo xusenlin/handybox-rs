@@ -78,12 +78,6 @@ tasks:
       - for: [windows-x64.exe, linux-x64]
         cmd: scripts/zip-binary.sh dist/{{.NAME}}-{{.VERSION}}-{{.ITEM}}
 
-  icon:
-    desc: 由 assets/logo.png 重新生成两份圆角图标到 assets/（产物已提交，平时无需运行）
-    dir: scripts/icon
-    cmds:
-      - cargo run --release -q
-
   test:
     desc: 运行工作区测试
     cmds:

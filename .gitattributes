@@ -1,0 +1,12 @@
+# Report Rust as the repository's language. Everything else here supports the
+# Rust application rather than being a second implementation: .slint is UI
+# markup compiled by build.rs, the scripts only package release artifacts.
+*.slint             linguist-detectable=false
+*.svg               linguist-detectable=false
+*.sh                linguist-detectable=false
+*.yml               linguist-detectable=false
+*.toml              linguist-detectable=false
+scripts/Dockerfile.cross linguist-detectable=false
+
+# Test fixtures, not sources.
+examples/*          linguist-vendored
