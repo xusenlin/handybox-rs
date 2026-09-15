@@ -1,0 +1,32 @@
+import { CodeSymbol } from "../types.slint";
+
+// Everything the Barcode reader owns. The picture arrives as pixels the worker
+// already decoded: the event loop never opens an image file itself, and the
+// preview it shows is the very image the codes were read from.
+export global CodesState {
+    in property <string> filename;
+    in property <string> detail;
+    /// A recognition pass, not a native dialog: only this drives the progress bar.
+    in property <bool> working;
+    in property <image> preview;
+    /// Width over height of the picture. The panel sizes its stage from this
+    /// rather than from the image, so a marker lands in the same place whatever
+    /// room the window leaves for the preview.
+    in property <float> ratio: 1.0;
+    in property <bool> has-image;
+    in property <[CodeSymbol]> symbols;
+    in property <bool> has-result;
+    /// Which code is highlighted, or -1 for none. The list and the preview share
+    /// it, so clicking either one points at the same code. Pure view state: Rust
+    /// sets it only when a new picture arrives.
+    in-out property <int> selected: -1;
+    in property <string> dimensions;
+    in property <string> stats;
+    in property <string> status;
+    // 0 neutral, 1 codes were found, 2 nothing was. Nothing found is not an
+    // error — it is the answer — but it is the line people came to read.
+    in property <int> status-tone;
+    callback choose();
+    callback copy();
+    callback copy-one(int);
+}

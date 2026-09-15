@@ -17,3 +17,18 @@ export struct DiffRow {
     new-line: string,
     text: string,
 }
+
+// One recognized code. The geometry is a fraction of the picture — 0 is its left
+// or top edge, 1 the right or bottom one — so the same numbers place a marker
+// over a preview of any size. `index` is a string because it is only ever shown,
+// beside the row and on the marker that ties the two together.
+export struct CodeSymbol {
+    index: string,
+    format: string,
+    text: string,
+    detail: string,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+}

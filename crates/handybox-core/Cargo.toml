@@ -8,13 +8,22 @@ rust-version.workspace = true
 age = "0.12"
 anydoc = "=0.2.4"
 anyhow.workspace = true
+# Decoding only, and only the formats the barcode reader offers to open. The
+# default set would pull AVIF and OpenEXR encoders in for no one.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp", "tiff", "ico", "tga", "qoi", "pnm"] }
 jaq-core = "3"
 jaq-json = "2"
 jaq-std = "3"
+# Recognition reads grayscale, which the image crate already gives us, so rxing's
+# own `image` feature (and the imageproc tree behind it) stays out of the build.
+rxing = { version = "0.9.2", default-features = false, features = ["decoders", "multi_barcode_readers", "full_barcode_format_support", "encoding_rs"] }
 serde_json = "1"
 sha2 = "0.10"
 similar = "3"
 tempfile.workspace = true
 
 [dev-dependencies]
+# Writing barcodes is a test fixture, not a feature: the tests draw the codes
+# they then ask the reader to recognize.
+rxing = { version = "0.9.2", default-features = false, features = ["encoders"] }
 zip = { version = "8.6", default-features = false, features = ["deflate"] }

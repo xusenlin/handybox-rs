@@ -8,6 +8,7 @@ fn routes_are_unique_and_only_implemented_tools_are_available() {
         ToolId::Json,
         ToolId::Crypto,
         ToolId::Diff,
+        ToolId::Codes,
     ];
     let mut keys = HashSet::new();
     for tool in TOOLS {

@@ -1,7 +1,10 @@
 //! Runtime text is translated at display time, never frozen into worker events.
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
-    tools::{crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue, json::JsonIssue},
+    tools::{
+        codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue,
+        json::JsonIssue,
+    },
 };
 use std::path::PathBuf;
 
@@ -124,6 +127,7 @@ pub enum FailureKind {
     Json(JsonIssue),
     Crypto(CryptoIssue),
     Diff(DiffIssue),
+    Codes(CodesIssue),
     Clipboard,
     Operation,
     Worker,
@@ -172,6 +176,16 @@ impl Failure {
                 .downcast_ref::<DiffIssue>()
                 .copied()
                 .map(FailureKind::Diff),
+            error,
+        )
+    }
+
+    pub fn codes(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<CodesIssue>()
+                .copied()
+                .map(FailureKind::Codes),
             error,
         )
     }
@@ -290,6 +304,16 @@ impl Failure {
                 DiffIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
+            FailureKind::Codes(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Codes(issue) => match issue {
+                CodesIssue::InputMissing => "找不到输入文件。",
+                CodesIssue::Read => "无法读取文件，请检查访问权限。",
+                CodesIssue::NotFile => "请选择文件，而不是文件夹。",
+                CodesIssue::TooLarge => "图片超过 32 MiB，请选择更小的图片。",
+                CodesIssue::NotImage => "该文件不是图片，或其格式当前版本无法读取。",
+                CodesIssue::TooManyPixels => "图片超过 4000 万像素，请先缩小后再识别。",
+            }
+            .into(),
             FailureKind::Clipboard => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -327,6 +351,7 @@ pub enum Message {
     Saving,
     Running,
     Hashing,
+    Scanning,
     Encrypting,
     Decrypting,
     KeyGenerated,
@@ -372,6 +397,7 @@ impl Message {
             Self::Running => lang.text("Running your filter locally…", "正在本地运行表达式…"),
             Self::Saving => lang.text("Choose where to save your file…", "请选择文件的保存位置…"),
             Self::Hashing => lang.text("Reading and hashing locally…", "正在本地读取并计算摘要…"),
+            Self::Scanning => lang.text("Looking for codes locally…", "正在本地识别图片中的条码…"),
             Self::Encrypting => lang.text("Encrypting locally…", "正在本地加密…"),
             Self::Decrypting => lang.text("Decrypting locally…", "正在本地解密…"),
             Self::KeyGenerated => lang.text(
@@ -480,6 +506,27 @@ mod tests {
             Failure::crypto(anyhow::anyhow!("invalid bech32").context(CryptoIssue::Identity));
         assert!(detail.render(Language::English).contains("invalid bech32"));
         assert!(detail.render(Language::Chinese).contains("invalid bech32"));
+    }
+
+    #[test]
+    fn barcode_failures_are_about_the_file_rather_than_the_picture_in_it() {
+        // Finding no code is an outcome the page states itself, so every failure
+        // this tool can report is about opening the file and belongs in a toast.
+        let not_image = Failure::codes(anyhow::anyhow!(CodesIssue::NotImage));
+        assert!(!not_image.about_input());
+        assert!(not_image.render(Language::English).contains("not an image"));
+        assert!(not_image.render(Language::Chinese).contains("不是图片"));
+        let pixels = Failure::codes(anyhow::anyhow!(CodesIssue::TooManyPixels));
+        assert!(pixels.render(Language::English).contains("40 megapixels"));
+        assert!(pixels.render(Language::Chinese).contains("4000 万像素"));
+        // The decoder's own diagnostic is kept as the cause, in either language.
+        let detail =
+            Failure::codes(anyhow::anyhow!("unsupported color type").context(CodesIssue::NotImage));
+        assert!(
+            detail
+                .render(Language::Chinese)
+                .contains("unsupported color type")
+        );
     }
 
     #[test]

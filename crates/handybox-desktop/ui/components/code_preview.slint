@@ -1,0 +1,90 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { CodeSymbol } from "../types.slint";
+
+// One code's box, drawn over the picture it was found in. The stage it sits on
+// has the picture's own aspect ratio, so a fraction of the image is a fraction
+// of the stage and nothing has to know how large either of them is.
+component Marker inherits Rectangle {
+    in property <CodeSymbol> symbol;
+    in property <bool> selected;
+    in property <length> stage-width;
+    in property <length> stage-height;
+    callback clicked();
+    // A row of bars is found as a line across them, so a box can be flat or
+    // even empty. Every marker gets a minimum size and stays centred on the
+    // code either way, which is the only thing its position really promises.
+    private property <length> pad: 7px;
+    x: root.stage-width * (root.symbol.x + root.symbol.width / 2) - self.width / 2;
+    y: root.stage-height * (root.symbol.y + root.symbol.height / 2) - self.height / 2;
+    width: max(root.stage-width * root.symbol.width + 2 * root.pad, 28px);
+    height: max(root.stage-height * root.symbol.height + 2 * root.pad, 28px);
+    border-radius: 6px;
+    border-width: root.selected ? 3px : 2px;
+    border-color: Theme.marker;
+    background: root.selected ? Theme.marker-wash : transparent;
+    // The number is what ties a box to its row in the list beside it.
+    Rectangle {
+        x: -2px; y: -14px; height: 17px; width: number.min-width;
+        border-radius: 5px; background: Theme.marker;
+        number := HorizontalLayout {
+            padding-left: 5px; padding-right: 5px;
+            Text { text: root.symbol.index; color: white; font-size: 10px; font-weight: 700; vertical-alignment: center; }
+        }
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// The picture, at the size the window leaves for it, with every code found in it
+// boxed where it sits.
+export component CodePreview inherits Rectangle {
+    in property <image> source;
+    in property <float> ratio: 1.0;
+    in property <[CodeSymbol]> symbols;
+    in property <int> selected;
+    in property <bool> has-image;
+    in property <string> caption;
+    callback select(int);
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.image; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.codes-preview; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Text { text: root.caption; font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px; }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-image: EmptyState {
+            tool-key: "codes";
+            heading: I18n.codes-empty-title;
+            description: I18n.codes-empty-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-image: Rectangle {
+            vertical-stretch: 1;
+            // A picture of any shape leaves room around itself; tinting that
+            // room says where the image ends, which matters most for the
+            // white-on-white scans this tool is usually given.
+            background: Theme.tint; border-radius: 8px; clip: true;
+            stage := Rectangle {
+                width: min(parent.width - 16px, (parent.height - 16px) * root.ratio);
+                height: min(parent.height - 16px, (parent.width - 16px) / root.ratio);
+                // The stage already has the picture's proportions, so the image
+                // fills it exactly and no letterboxing is left to account for.
+                Image { x: 0; y: 0; width: parent.width; height: parent.height; source: root.source; image-fit: fill; }
+                for symbol[index] in root.symbols: Marker {
+                    symbol: symbol;
+                    selected: index == root.selected;
+                    stage-width: stage.width;
+                    stage-height: stage.height;
+                    clicked => { root.select(index); }
+                }
+            }
+        }
+    }
+}

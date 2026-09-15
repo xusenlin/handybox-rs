@@ -1,0 +1,102 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Badge } from "badge.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { CodeSymbol } from "../types.slint";
+
+// What the codes say: a titled card with one row per code, in the order they are
+// read off the picture. Selecting a row highlights its box in the preview.
+//
+// Like CodeView, the `for` is the direct child of the ListView, which is what
+// compiles it into a virtualized repeater.
+export component SymbolList inherits Rectangle {
+    in property <[CodeSymbol]> symbols;
+    in property <int> selected;
+    in property <bool> has-result;
+    in property <bool> busy;
+    in property <string> caption;
+    in property <string> stats;
+    callback select(int);
+    callback copy();
+    callback copy-one(int);
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.scan; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.codes-result; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Text { text: root.caption; font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px; }
+            Rectangle { horizontal-stretch: 1; }
+            // What leaves this card is the decoded text, one code per line:
+            // that is what gets pasted somewhere else.
+            Action { label: I18n.copy; icon: Icons.copy; enabled: root.has-result && !root.busy; clicked => { root.copy(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-result: EmptyState {
+            tool-key: "codes";
+            heading: I18n.codes-none-title;
+            description: I18n.codes-none-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-result: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 4px; y: 8px;
+                width: parent.width - 8px; height: parent.height - 16px;
+                for symbol[index] in root.symbols: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: row.preferred-height + 16px;
+                    border-radius: 8px;
+                    background: index == root.selected ? Theme.tint : transparent;
+                    // Declared before the row, so the copy button inside it
+                    // stays on top and keeps its own click.
+                    TouchArea { mouse-cursor: pointer; clicked => { root.select(index); } }
+                    row := HorizontalLayout {
+                        x: 0; y: 8px; width: parent.width;
+                        padding-left: 10px; padding-right: 10px; spacing: 11px;
+                        VerticalLayout {
+                            alignment: start; horizontal-stretch: 0;
+                            Rectangle {
+                                width: 22px; height: 22px; border-radius: 7px; background: Theme.marker;
+                                Text { text: symbol.index; color: white; font-size: 11px; font-weight: 700; }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 7px; horizontal-stretch: 1;
+                            HorizontalLayout {
+                                spacing: 9px;
+                                Badge { label: symbol.format; highlighted: index == root.selected; }
+                                Text { text: symbol.detail; color: Theme.muted; font-size: 10px; vertical-alignment: center; overflow: elide; min-width: 0px; }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            // A payload is content, not code: it is shown in the
+                            // family that covers the display language, because a
+                            // QR code holding Chinese is the ordinary case and
+                            // the monospace family has no glyphs for it.
+                            Text {
+                                text: symbol.text;
+                                color: Theme.ink; font-size: 13px;
+                                wrap: word-wrap; min-width: 0px;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: start; horizontal-stretch: 0;
+                            Action { label: I18n.codes-copy-one; icon: Icons.copy; enabled: !root.busy; clicked => { root.copy-one(index); } }
+                        }
+                    }
+                }
+            }
+        }
+        if root.has-result: Text {
+            text: root.stats;
+            color: Theme.muted; font-size: 10px; wrap: word-wrap;
+            // Wrap instead of widening the card: see the page's status line.
+            min-width: 0px;
+        }
+    }
+}

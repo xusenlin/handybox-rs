@@ -2,6 +2,7 @@
 //!
 //! Commands and events are grouped per tool: the shell only has to route them,
 //! and a new tool adds a module here instead of another arm in one large enum.
+pub mod codes;
 pub mod crypto;
 pub mod diff;
 pub mod documents;
@@ -17,6 +18,7 @@ pub enum Command {
     Json(json::Command),
     Crypto(crypto::Command),
     Diff(diff::Command),
+    Codes(codes::Command),
     /// Copying is the same operation whichever tool produced the text, and the
     /// clipboard context is shared, so it lives here rather than in both tools.
     Copy(String),
@@ -27,6 +29,7 @@ pub enum Event {
     Json(json::Event),
     Crypto(crypto::Event),
     Diff(diff::Event),
+    Codes(codes::Event),
     /// A command that only produced a notice: a copy, an export, a cancelled
     /// dialog or a failure. Every tool's busy state ends here.
     Finished(std::result::Result<Message, Failure>),
@@ -88,6 +91,7 @@ impl Worker {
                             Command::Json(command) => json::execute(command, &output),
                             Command::Crypto(command) => crypto::execute(command, &output),
                             Command::Diff(command) => diff::execute(command, &output),
+                            Command::Codes(command) => codes::execute(command, &output),
                             Command::Copy(text) => {
                                 let _ = output.send(Event::Finished(shared.copy(text)));
                             }

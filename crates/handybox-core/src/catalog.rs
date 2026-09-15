@@ -84,7 +84,7 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "Read QR codes and barcodes from images.",
         libraries: "rxing",
         capabilities: "Decode QR codes and common barcodes\nImport images and inspect results\nCopy decoded text",
-        available: false,
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Cleanup,

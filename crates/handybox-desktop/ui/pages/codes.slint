@@ -1,0 +1,73 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { FileCard } from "../components/file_card.slint";
+import { CodePreview } from "../components/code_preview.slint";
+import { SymbolList } from "../components/symbol_list.slint";
+import { Icons } from "../icons.slint";
+import { CodesState } from "../state/codes.slint";
+
+export component CodesPage inherits VerticalLayout {
+    in property <bool> busy;
+    in property <bool> dragging;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.codes-title; description: I18n.codes-description; badge: I18n.codes-badge; }
+    // Recognition starts as soon as a picture arrives: there is nothing to
+    // configure about reading a code, so there is no button to press either.
+    FileCard {
+        filename: CodesState.filename; detail: CodesState.detail;
+        busy: root.busy; converting: CodesState.working; dragging: root.dragging;
+        icon: Icons.scan;
+        prompt: I18n.codes-choose;
+        drop-prompt: I18n.codes-drop;
+        browse-label: I18n.codes-browse;
+        change-label: I18n.codes-change;
+        choose => { CodesState.choose(); }
+    }
+    // The picture and what was read off it, side by side and each in a plain
+    // Rectangle it sizes itself to: a layout hands out width by its children's
+    // preferred sizes, so the card holding a long payload would otherwise keep
+    // growing at the preview's expense.
+    HorizontalLayout {
+        spacing: 16px; vertical-stretch: 1; min-height: 240px;
+        Rectangle {
+            horizontal-stretch: 1;
+            CodePreview {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                source: CodesState.preview;
+                ratio: CodesState.ratio;
+                symbols: CodesState.symbols;
+                selected: CodesState.selected;
+                has-image: CodesState.has-image;
+                caption: CodesState.dimensions;
+                // Which code is being pointed at is view state, and both cards
+                // read it from the same place.
+                select(index) => { CodesState.selected = index; }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            SymbolList {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                symbols: CodesState.symbols;
+                selected: CodesState.selected;
+                has-result: CodesState.has-result;
+                busy: root.busy;
+                caption: CodesState.working ? I18n.codes-scanning : I18n.codes-result-caption;
+                stats: CodesState.stats;
+                select(index) => { CodesState.selected = index; }
+                copy => { CodesState.copy(); }
+                copy-one(index) => { CodesState.copy-one(index); }
+            }
+        }
+    }
+    // The verdict runs the full width under both cards. A sentence of any
+    // length can only wrap here; it can never take width from a card.
+    Text {
+        text: CodesState.status;
+        color: CodesState.status-tone == 2 ? Theme.error : CodesState.status-tone == 1 ? Theme.success : Theme.muted;
+        font-size: 11px; font-weight: CodesState.status-tone == 0 ? 400 : 600;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.codes-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

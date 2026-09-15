@@ -113,6 +113,25 @@ export global I18n {
     out property <string> diff-empty-title: chinese ? "看清每一处改动" : "Every change, in plain sight";
     out property <string> diff-empty-hint: chinese ? "两侧的差异会逐行显示在这里，可复制或导出为 unified diff。\n粘贴文本或打开文件，对比会自动开始。" : "Differences appear here line by line, ready to copy or export as a unified diff.\nPaste text or open a file, and the comparison runs on its own.";
     out property <string> diff-footnote: chinese ? "所有处理均在本机完成  ·  每侧最多 2 MiB  ·  对比由 similar 提供  ·  换行符差异（CRLF/LF）不计为改动" : "Processed on your device  ·  Up to 2 MiB per side  ·  Comparison provided by similar  ·  Line endings (CRLF/LF) are not counted as a change";
+    // Barcode reader. Recognition starts on its own, so nothing here names a
+    // Scan action; the labels are about the picture and what was read off it.
+    out property <string> codes-title: chinese ? "条码识别" : "Barcode reader";
+    out property <string> codes-description: chinese ? "读取图片中的二维码和条形码，并标出它们的位置。" : "Read the QR codes and barcodes in an image, and see where each one sits.";
+    out property <string> codes-badge: chinese ? "二维码与条码" : "QR AND BARCODES";
+    out property <string> codes-choose: chinese ? "选择图片，或将图片拖到这里" : "Choose an image or drop it here";
+    out property <string> codes-drop: chinese ? "松开以识别该图片" : "Drop to read this image";
+    out property <string> codes-browse: chinese ? "选择图片" : "Browse images";
+    out property <string> codes-change: chinese ? "更换图片" : "Change image";
+    out property <string> codes-preview: chinese ? "图片" : "Image";
+    out property <string> codes-result: chinese ? "识别结果" : "Codes";
+    out property <string> codes-result-caption: chinese ? " / 按阅读顺序" : " / in reading order";
+    out property <string> codes-scanning: chinese ? " / 正在识别…" : " / Reading…";
+    out property <string> codes-copy-one: chinese ? "复制" : "Copy";
+    out property <string> codes-empty-title: chinese ? "先把图片交给它" : "Start with a picture";
+    out property <string> codes-empty-hint: chinese ? "图片会显示在这里，识别到的码会被逐个标出。\n选择一张图片，识别会自动开始。" : "Your image appears here with every code boxed where it was found.\nChoose an image, and the reading starts on its own.";
+    out property <string> codes-none-title: chinese ? "码里写了什么" : "What the code says";
+    out property <string> codes-none-hint: chinese ? "识别出的内容会逐条显示在这里，可以单条复制或一次复制全部。" : "Everything that was read appears here, ready to copy one by one or all at once.";
+    out property <string> codes-footnote: chinese ? "所有处理均在本机完成  ·  单张图片最大 32 MiB / 4000 万像素  ·  识别由 rxing 提供  ·  支持二维码、Data Matrix、Aztec、PDF417 与常见一维码" : "Processed on your device  ·  Up to 32 MiB and 40 megapixels per image  ·  Recognition provided by rxing  ·  QR, Data Matrix, Aztec, PDF417 and the common 1D symbologies";
     out property <string> planned: chinese ? "开发计划" : "PLANNED";
     out property <string> planned-title: chinese ? "新工具正在准备中" : "A new tool is taking shape";
     out property <string> planned-hint: chinese ? "已有多个工具可以使用。\n此工具尚未实现，以下为计划支持的能力。" : "Several tools are ready today.\nThis tool is not implemented yet. Here is what is planned.";

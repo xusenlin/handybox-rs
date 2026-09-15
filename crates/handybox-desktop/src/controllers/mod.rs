@@ -1,5 +1,6 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
+pub mod codes;
 pub mod crypto;
 pub mod diff;
 pub mod documents;
@@ -13,7 +14,7 @@ use crate::{
 };
 use handybox_core::{
     catalog::{TOOLS, ToolDescriptor},
-    tools::{crypto as core_crypto, json as core_json},
+    tools::{codes as core_codes, crypto as core_crypto, json as core_json},
 };
 use i_slint_backend_winit::{EventResult, WinitWindowAccessor, winit::event::WindowEvent};
 use slint::{ComponentHandle, ModelRc, Timer, TimerMode, VecModel};
@@ -165,30 +166,87 @@ fn apply_language(ui: &AppWindow, language: Language) {
         .set_font_family(language.font_family().into());
 }
 
-/// Hand a file to the tool that handles it. The extension is all there is to go
-/// on before reading it, and it is enough to tell these apart — except for the
-/// two tools that take any file at all: the crypto tool, and the diff tool,
-/// whose input is whatever text you put beside another text. While one of their
-/// pages is showing, a dropped file is its input rather than something to route
-/// away.
-fn open(
-    shell: &Shell,
-    documents: &documents::Controller,
-    json: &json::Controller,
-    crypto: &crypto::Controller,
-    diff: &diff::Controller,
-    path: PathBuf,
-) {
-    if shell.showing("crypto") {
-        crypto.open(shell, path, None);
-    } else if shell.showing("diff") {
-        diff.open(shell, path);
-    } else if core_crypto::claims(&path) {
-        crypto.open(shell, path, Some(crypto::Mode::Decrypt));
-    } else if core_json::claims(&path) {
-        json.open(shell, path);
-    } else {
-        documents.convert(shell, path);
+/// Every tool's controller. They are needed together — to route a file, to
+/// relabel after a language change, and to hand each worker event to its own
+/// tool — so they travel together, and adding a tool adds a field rather than a
+/// parameter to three signatures.
+#[derive(Clone)]
+struct Tools {
+    documents: documents::Controller,
+    json: json::Controller,
+    crypto: crypto::Controller,
+    diff: diff::Controller,
+    codes: codes::Controller,
+}
+
+impl Tools {
+    fn new(ui: &AppWindow) -> Self {
+        Self {
+            documents: documents::Controller::new(ui),
+            json: json::Controller::new(ui),
+            crypto: crypto::Controller::new(ui),
+            diff: diff::Controller::new(ui),
+            codes: codes::Controller::new(ui),
+        }
+    }
+
+    fn bind(&self, shell: &Shell) {
+        self.documents.bind(shell);
+        self.json.bind(shell);
+        self.crypto.bind(shell);
+        self.diff.bind(shell);
+        self.codes.bind(shell);
+    }
+
+    /// Re-render what every tool derives from its state. Only presentation
+    /// metadata: documents, results, selection, route and jobs in flight are
+    /// untouched when the language changes.
+    fn refresh(&self, language: Language) {
+        self.documents.refresh(language);
+        self.json.refresh(language);
+        self.crypto.refresh(language);
+        self.diff.refresh(language);
+        self.codes.refresh(language);
+    }
+
+    fn handle(&self, shell: &Shell, event: Event) {
+        match event {
+            Event::Documents(event) => self.documents.handle(shell, event),
+            Event::Json(event) => self.json.handle(shell, event),
+            Event::Crypto(event) => self.crypto.handle(shell, event),
+            Event::Diff(event) => self.diff.handle(shell, event),
+            Event::Codes(event) => self.codes.handle(shell, event),
+            Event::Finished(outcome) => shell.finish(outcome),
+        }
+    }
+
+    /// Editing is not an operation: the workbench validates and the diff tool
+    /// compares on their own clock.
+    fn tick(&self, shell: &Shell) {
+        self.json.tick(shell);
+        self.diff.tick(shell);
+    }
+
+    /// Hand a file to the tool that handles it. The extension is all there is to
+    /// go on before reading it, and it is enough to tell these apart — except
+    /// for the two tools that take any file at all: the crypto tool, and the
+    /// diff tool, whose input is whatever text you put beside another text.
+    /// While one of their pages is showing, a dropped file is its input rather
+    /// than something to route away.
+    fn open(&self, shell: &Shell, path: PathBuf) {
+        if shell.showing("crypto") {
+            self.crypto.open(shell, path, None);
+        } else if shell.showing("diff") {
+            self.diff.open(shell, path);
+        } else if core_crypto::claims(&path) {
+            self.crypto.open(shell, path, Some(crypto::Mode::Decrypt));
+        } else if core_codes::claims(&path) {
+            self.codes.open(shell, path);
+        } else if core_json::claims(&path) {
+            self.json.open(shell, path);
+        } else {
+            self.documents.convert(shell, path);
+        }
     }
 }
 
@@ -210,24 +268,15 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
             ..Default::default()
         })),
     };
-    let documents = documents::Controller::new(ui);
-    let json = json::Controller::new(ui);
-    let crypto = crypto::Controller::new(ui);
-    let diff = diff::Controller::new(ui);
+    let tools = Tools::new(ui);
 
     ui.set_repository(link::REPOSITORY.into());
     apply_language(ui, shell.language());
     shell.navigate("documents");
     shell.refresh_tools();
     shell.refresh_notice();
-    documents.bind(&shell);
-    json.bind(&shell);
-    crypto.bind(&shell);
-    diff.bind(&shell);
-    documents.refresh(shell.language());
-    json.refresh(shell.language());
-    crypto.refresh(shell.language());
-    diff.refresh(shell.language());
+    tools.bind(&shell);
+    tools.refresh(shell.language());
 
     let bound = shell.clone();
     ui.on_navigate(move |key| bound.navigate(&key));
@@ -236,15 +285,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
         bound.state.borrow_mut().query = query.to_string();
         bound.refresh_tools();
     });
-    let bound = shell.clone();
-    // Only presentation metadata is refreshed. Documents, results, selection,
-    // route and jobs in flight are untouched when the language changes.
-    let (relabel_documents, relabel_json, relabel_crypto, relabel_diff) = (
-        documents.clone(),
-        json.clone(),
-        crypto.clone(),
-        diff.clone(),
-    );
+    let (bound, relabel) = (shell.clone(), tools.clone());
     ui.on_language_selected(move |chinese| {
         let Some(ui) = bound.ui.upgrade() else { return };
         {
@@ -258,10 +299,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
         apply_language(&ui, bound.language());
         bound.refresh_tools();
         bound.refresh_notice();
-        relabel_documents.refresh(bound.language());
-        relabel_json.refresh(bound.language());
-        relabel_crypto.refresh(bound.language());
-        relabel_diff.refresh(bound.language());
+        relabel.refresh(bound.language());
     });
     let bound = shell.clone();
     // The toast expires on its own; clearing the message keeps a later refresh
@@ -287,14 +325,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
 
     // A file dropped anywhere in the window opens in the tool that handles it,
     // whichever page is showing, so the route follows the file.
-    let (bound, dropped_documents, dropped_json, dropped_crypto, dropped_diff, weak) = (
-        shell.clone(),
-        documents.clone(),
-        json.clone(),
-        crypto.clone(),
-        diff.clone(),
-        ui.as_weak(),
-    );
+    let (bound, dropped, weak) = (shell.clone(), tools.clone(), ui.as_weak());
     ui.window().on_winit_window_event(move |_, event| {
         let Some(ui) = weak.upgrade() else {
             return EventResult::Propagate;
@@ -305,14 +336,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
             WindowEvent::DroppedFile(path) => {
                 ui.set_dragging(false);
                 if !ui.get_busy() {
-                    open(
-                        &bound,
-                        &dropped_documents,
-                        &dropped_json,
-                        &dropped_crypto,
-                        &dropped_diff,
-                        path.clone(),
-                    );
+                    dropped.open(&bound, path.clone());
                 }
             }
             _ => {}
@@ -321,8 +345,8 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
     });
 
     match initial.as_slice() {
-        [file] => open(&shell, &documents, &json, &crypto, &diff, file.clone()),
-        [left, right] => diff.open_pair(&shell, left.clone(), right.clone()),
+        [file] => tools.open(&shell, file.clone()),
+        [left, right] => tools.diff.open_pair(&shell, left.clone(), right.clone()),
         _ => {}
     }
     let weak = ui.as_weak();
@@ -332,18 +356,9 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
             return;
         };
         for event in worker.events.try_iter() {
-            match event {
-                Event::Documents(event) => documents.handle(&shell, event),
-                Event::Json(event) => json.handle(&shell, event),
-                Event::Crypto(event) => crypto.handle(&shell, event),
-                Event::Diff(event) => diff.handle(&shell, event),
-                Event::Finished(outcome) => shell.finish(outcome),
-            }
+            tools.handle(&shell, event);
         }
-        // Editing is not an operation: the workbench validates and the diff
-        // tool compares on their own clock.
-        json.tick(&shell);
-        diff.tick(&shell);
+        tools.tick(&shell);
     });
     Ok(timer)
 }
