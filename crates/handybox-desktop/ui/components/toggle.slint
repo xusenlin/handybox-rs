@@ -7,7 +7,11 @@ export component Toggle inherits Rectangle {
     in property <string> label;
     in-out property <bool> checked;
     callback toggled(bool);
-    height: 22px;
+    // A minimum rather than a fixed height: a fixed-size child is not centred
+    // on the cross axis of a layout, so beside a 38px button this would sit at
+    // the top of the row. Stretching instead lets the track and the label —
+    // both already centred inside — line up with whatever shares the row.
+    min-height: 22px;
     min-width: row.min-width;
     horizontal-stretch: 0;
     accessible-role: checkbox;

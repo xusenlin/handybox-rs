@@ -3,12 +3,20 @@ import { Theme } from "../theme.slint";
 import { Action } from "action.slint";
 import { Icon } from "icon.slint";
 import { Icons } from "../icons.slint";
+// The chosen input file, with the button that changes it. The wording defaults
+// to the document converter's, because that is where this card started; a tool
+// that takes any file at all overrides it rather than copying the card.
 export component FileCard inherits Rectangle {
     in property <string> filename;
     in property <string> detail;
     in property <bool> busy;
     in property <bool> converting;
     in property <bool> dragging;
+    in property <image> icon: Icons.document;
+    in property <string> prompt: I18n.choose;
+    in property <string> drop-prompt: I18n.drop;
+    in property <string> browse-label: I18n.browse;
+    in property <string> change-label: I18n.change-file;
     callback choose();
     height: 96px;
     border-radius: Theme.radius;
@@ -47,17 +55,17 @@ export component FileCard inherits Rectangle {
             alignment: center; horizontal-stretch: 0;
             Rectangle {
                 width: 52px; height: 58px; border-radius: 10px; background: Theme.tint;
-                Icon { source: root.filename == "" ? Icons.file-import : Icons.document; ink: Theme.accent; width: 28px; height: 28px; x: 12px; y: 15px; }
+                Icon { source: root.filename == "" ? Icons.file-import : root.icon; ink: Theme.accent; width: 28px; height: 28px; x: 12px; y: 15px; }
             }
         }
         VerticalLayout {
             spacing: 8px; alignment: center; horizontal-stretch: 1;
-            Text { text: root.dragging ? I18n.drop : root.filename == "" ? I18n.choose : root.filename; color: Theme.ink; font-size: 15px; font-weight: 600; overflow: elide; }
+            Text { text: root.dragging ? root.drop-prompt : root.filename == "" ? root.prompt : root.filename; color: Theme.ink; font-size: 15px; font-weight: 600; overflow: elide; }
             Text { text: root.detail; color: Theme.muted; font-size: 11px; wrap: word-wrap; overflow: elide; }
         }
         VerticalLayout {
             alignment: center; horizontal-stretch: 0;
-            Action { label: root.converting ? I18n.working : root.filename == "" ? I18n.browse : I18n.change-file; icon: root.converting ? Icons.clock : Icons.folder; primary: true; enabled: !root.busy; clicked => { root.choose(); } }
+            Action { label: root.converting ? I18n.working : root.filename == "" ? root.browse-label : root.change-label; icon: root.converting ? Icons.clock : Icons.folder; primary: true; enabled: !root.busy; clicked => { root.choose(); } }
         }
     }
 }

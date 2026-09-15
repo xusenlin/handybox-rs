@@ -6,7 +6,7 @@
 
 一个使用 Rust 和 Slint 构建的、快速且离线优先的桌面工具箱。
 
-HandyBox 把日常小工具集中到一个原生桌面工作区里。当前版本提供**中英文界面**、一个可用的**文档转 Markdown 工具**、一个支持 jq 查询的**JSON 工作台**，以及另外七个工具的可导航、带说明的占位页面。无需账号、API Key、服务器、WebView，也不会上传任何文档。
+HandyBox 把日常小工具集中到一个原生桌面工作区里。当前版本提供**中英文界面**、一个可用的**文档转 Markdown 工具**、一个支持 jq 查询的**JSON 工作台**、一个基于 sha2 与 age 的**哈希与加密**工具，以及另外六个工具的可导航、带说明的占位页面。无需账号、API Key、服务器、WebView，也不会上传任何文档。
 
 用侧边栏底部的 **English / 中文** 可以立即切换语言。当前工具、搜索内容和已转换的文档都会保留。工具搜索同时支持两种语言和引擎名称。默认英文；选择会保存在本地，下次启动时沿用。
 
@@ -27,7 +27,7 @@ SLINT_BACKEND=winit-software cargo run --locked
 cargo build --release --locked
 ```
 
-仓库锁定了 **Rust 1.88.0**、**Slint 1.13.1**、**anydoc 0.2.4** 和 **jaq 3** 系列 crate；更新依赖时请一并提交 `Cargo.lock`。rustup 会在需要时自动安装锁定的工具链。首次下载依赖需要联网；构建完成后的应用完全在本地处理文档。
+仓库锁定了 **Rust 1.88.0**、**Slint 1.13.1**、**anydoc 0.2.4**、**jaq 3** 系列 crate 和 **age 0.12**；更新依赖时请一并提交 `Cargo.lock`。rustup 会在需要时自动安装锁定的工具链。首次下载依赖需要联网；构建完成后的应用完全在本地处理文档。
 
 macOS 上需安装 Xcode Command Line Tools。Windows 上请使用 MSVC Rust 工具链和 Visual Studio C++ Build Tools。Debian/Ubuntu 上请安装桌面构建依赖：
 
@@ -80,7 +80,7 @@ Windows 和 Linux 的二进制在 [`scripts/Dockerfile.cross`](scripts/Dockerfil
 | --- | --- | --- |
 | 文档转换 | `anydoc` | 已实现：选择/拖入文件、转换、查看 Markdown 源码、全部复制、导出 `.md` |
 | JSON 工作台 | `jaq` | 已实现：校验、格式化、压缩、jq 语法查询、复制与导出 `.json` |
-| 哈希与加密 | `sha2` + `age` | 占位：校验和、校验、加密与解密 |
+| 哈希与加密 | `sha2` + `age` | 已实现：SHA-256/SHA-512 摘要与校验、用密码或密钥进行 age 加密与解密 |
 | 文本对比 | `similar` | 占位：文本/文件比较与 unified diff |
 | 图像处理 | `image` + `fast_image_resize` + `oxipng` + `nom-exif` | 占位：格式转换、缩放、PNG 优化与元数据查看 |
 | 压缩与解压 | `zip` + `sevenz-rust2` | 占位：压缩包预览、创建与解压 |
@@ -134,6 +134,25 @@ Windows 和 Linux 的二进制在 [`scripts/Dockerfile.cross`](scripts/Dockerfil
 
 可以用 [`examples/sample.json`](examples/sample.json) 试试 `.tools | map(.key)` 或 `.tools[] | select(.ready) | .engine`。
 
+## 哈希与加密
+
+三种操作共用同一个源文件：任何文件都可以计算摘要、加密或解密，顶部的切换只决定在它旁边问什么。点击选择文件、在本页时把文件拖到窗口上，或在启动时传入路径。`.age` 文件无论当前在哪一页，都会在这里以 **解密** 打开。
+
+**校验和** 只读一次文件，同时给出 SHA-256 和 SHA-512。把校验和粘进输入框即可比对：长度就说明了算法，不需要再选；直接粘贴一整行 `shasum` 输出也可以，因为只读第一个字段。结论是结果下方的一行绿字或红字——不一致会直接说出来，而不是留给你逐位去比。
+
+**加密** 与 **解密** 使用 [age](https://github.com/str4d/rage) 的两种模式：
+
+- **密码**（scrypt）。工作因子按本机速度取约一秒，加密和解密各一次。没有找回途径：密码丢失就等于文件丢失，所以在确认之前可以用 **显示** 把输入框取消遮蔽。
+- **公钥**（X25519）。粘贴一个或多个 `age1…` 接收者，每行一个或用空格分隔；**生成密钥对** 会新建一对，并把公钥追加到输入框。私钥只在结果面板显示这一次，不会写到任何地方——请自行保存，否则加密给该公钥的文件将再也打不开。解密时使用对应的 `AGE-SECRET-KEY-1…`。
+
+行为与当前限制：
+
+- **单个文件最大 2 GiB。** 全程按固定分块流式处理，不会整份读进内存，所以这个上限是耐心预算：工作线程一旦开始就无法中断。
+- 文件头已经说明它需要哪种密钥，因此用密钥去开密码保护的文件（或反过来）会被如实指出，而不是丢出 age 笼统的“没有匹配的密钥”。
+- 输出先写临时文件再原子落盘。加密结果必须使用 `.age` 扩展名，两个方向都不会覆盖正在读取的文件。是否覆盖由原生对话框确认。
+- 接收者和密钥在读写任何内容之前就会解析，因此写错只会得到一条提示，不会产生残留文件。
+- 密钥只存在于页面输入框和工作线程的命令中。除了你选定保存位置的那个文件，不会写入磁盘。
+
 ## 架构
 
 工作区把原生 UI 与可复用的工具操作分开：
@@ -144,9 +163,11 @@ crates/
     src/catalog.rs              # ToolId + 元数据：唯一事实来源
     src/tools/documents.rs      # 校验、anydoc 适配、结果、导出
     src/tools/json.rs           # 解析、格式化、jaq 适配、有界运行
+    src/tools/crypto.rs         # 流式摘要、age 加密与解密
     tests/catalog.rs            # 稳定路由与实现状态
     tests/documents.rs          # 转换与文件安全的集成测试
     tests/json.rs               # 格式化、查询、上限与导出安全
+    tests/crypto.rs             # 摘要、校验与 age 往返
   handybox-desktop/
     build.rs                    # 编译 Slint 组件树
     src/main.rs                 # 启动、等宽字体、可选的初始文档
@@ -157,9 +178,11 @@ crates/
     src/controllers/mod.rs      # 外壳：路由、语言、提示、事件轮询
     src/controllers/documents.rs# 转换器的状态、回调与事件
     src/controllers/json.rs     # 工作台的状态、校验节奏与事件
+    src/controllers/crypto.rs   # 源文件、三种操作及其报告
     src/worker/mod.rs           # 有界的后台命令/事件桥接
     src/worker/documents.rs     # 选择器、转换与 Markdown 导出
     src/worker/json.rs          # 校验、jq 运行、打开文件与导出
+    src/worker/crypto.rs        # 选择器、摘要、age 加密与解密
     ui/app.slint                # 仅外壳：侧边栏 + 当前页 + 状态栏
     ui/theme.slint              # 共享调色板、字体、间距、圆角
     ui/icons.slint              # 内嵌 SVG 资源目录
@@ -168,9 +191,11 @@ crates/
     ui/types.slint              # 面向 UI 的数据模型
     ui/state/documents.slint    # 转换器的属性与回调
     ui/state/json.slint         # 工作台的属性与回调
+    ui/state/crypto.slint       # 哈希与加密的属性与回调
     ui/components/              # 可复用的视觉构件
     ui/pages/documents.slint    # 组合出转换页面
     ui/pages/json.slint         # 组合出工作台页面
+    ui/pages/crypto.slint       # 组合出哈希与加密页面
     ui/pages/placeholder.slint  # 由元数据驱动的计划中工具页面
 assets/app-icon.png              # 圆角图标：侧边栏与窗口
 assets/macos-icon.png            # 按 Apple 网格制作的图标：Dock 与 .icns

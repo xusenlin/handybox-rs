@@ -1,13 +1,15 @@
 import { Theme } from "../theme.slint";
 import { Icon } from "icon.slint";
 
-// One-line input with a leading icon. Used for the sidebar search and the jq
-// filter; `mono` is the only difference between a phrase and an expression.
+// One-line input with a leading icon. Used for the sidebar search, the jq filter
+// and the secrets on the crypto page; `mono` is the only difference between a
+// phrase and an expression, and `password` masks what is typed.
 export component TextField inherits Rectangle {
     in property <image> icon;
     in property <string> placeholder;
     in property <string> label;
     in property <bool> mono: false;
+    in property <bool> password: false;
     in-out property <string> text <=> input.text;
     callback edited(string);
     callback accepted();
@@ -27,6 +29,7 @@ export component TextField inherits Rectangle {
                 single-line: true; vertical-alignment: center;
                 color: Theme.ink; font-size: 12px;
                 font-family: root.mono ? Theme.mono-family : Theme.font-family;
+                input-type: root.password ? InputType.password : InputType.text;
                 accessible-label: root.label;
                 edited => { root.edited(self.text); }
                 accepted => { root.accepted(); }

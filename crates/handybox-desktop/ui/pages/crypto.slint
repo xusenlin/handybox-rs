@@ -1,0 +1,143 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { FileCard } from "../components/file_card.slint";
+import { SourcePanel } from "../components/source_panel.slint";
+import { Segmented } from "../components/segmented.slint";
+import { TextField } from "../components/text_field.slint";
+import { Toggle } from "../components/toggle.slint";
+import { Action } from "../components/action.slint";
+import { Icons } from "../icons.slint";
+import { CryptoState } from "../state/crypto.slint";
+
+export component CryptoPage inherits VerticalLayout {
+    in property <bool> busy;
+    in property <bool> dragging;
+    // Every operation here needs a file; only the secret beside it changes.
+    private property <bool> ready: !root.busy && CryptoState.filename != "";
+    private property <string> note:
+        CryptoState.mode == 0 ? I18n.crypto-checksum-note
+        : CryptoState.mode == 1 ? (CryptoState.encrypt-with-key ? I18n.crypto-key-note : I18n.crypto-passphrase-note)
+        : (CryptoState.decrypt-with-key ? I18n.crypto-identity-note : I18n.crypto-passphrase-note);
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.crypto-title; description: I18n.crypto-description; badge: I18n.crypto-badge; }
+    // The three operations share the file below them, so this switches what is
+    // asked for rather than navigating anywhere.
+    HorizontalLayout {
+        Segmented {
+            options: [I18n.crypto-checksum, I18n.crypto-encrypt, I18n.crypto-decrypt];
+            enabled: !root.busy;
+            selected <=> CryptoState.mode;
+            changed(index) => { CryptoState.mode-selected(index); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    FileCard {
+        filename: CryptoState.filename; detail: CryptoState.detail;
+        busy: root.busy; converting: CryptoState.working; dragging: root.dragging;
+        icon: Icons.shield;
+        prompt: I18n.crypto-choose;
+        drop-prompt: I18n.crypto-drop;
+        browse-label: I18n.crypto-browse;
+        change-label: I18n.crypto-change;
+        choose => { CryptoState.choose(); }
+    }
+    // One row per mode. Each ends in the primary action, so the place to click
+    // never moves, and Return in the field beside it does the same thing.
+    if CryptoState.mode == 0: HorizontalLayout {
+        spacing: 10px;
+        TextField {
+            horizontal-stretch: 1;
+            icon: Icons.check-circle; mono: true;
+            label: I18n.crypto-expected;
+            placeholder: I18n.crypto-expected-placeholder;
+            text <=> CryptoState.expected;
+            accepted => { CryptoState.run(); }
+        }
+        Action { label: I18n.crypto-compute; icon: Icons.arrow-right; primary: true; enabled: root.ready; clicked => { CryptoState.run(); } }
+    }
+    if CryptoState.mode == 1: HorizontalLayout {
+        spacing: 10px;
+        if !CryptoState.encrypt-with-key: TextField {
+            horizontal-stretch: 1;
+            icon: Icons.lock;
+            password: !CryptoState.reveal;
+            label: I18n.crypto-passphrase;
+            placeholder: I18n.crypto-passphrase-placeholder;
+            text <=> CryptoState.passphrase;
+            accepted => { CryptoState.run(); }
+        }
+        // Encrypting under a typo is unrecoverable, so a masked field has to be
+        // readable back. A public key is not a secret and needs no such switch.
+        if !CryptoState.encrypt-with-key: Toggle { label: I18n.crypto-reveal; checked <=> CryptoState.reveal; }
+        if CryptoState.encrypt-with-key: TextField {
+            horizontal-stretch: 1;
+            icon: Icons.shield; mono: true;
+            label: I18n.crypto-recipients;
+            placeholder: I18n.crypto-recipients-placeholder;
+            text <=> CryptoState.recipients;
+            accepted => { CryptoState.run(); }
+        }
+        if CryptoState.encrypt-with-key: Action { label: I18n.crypto-generate; icon: Icons.settings; enabled: !root.busy; clicked => { CryptoState.generate-key(); } }
+        Action { label: I18n.crypto-encrypt; icon: Icons.lock; primary: true; enabled: root.ready; clicked => { CryptoState.run(); } }
+    }
+    if CryptoState.mode == 2: HorizontalLayout {
+        spacing: 10px;
+        if !CryptoState.decrypt-with-key: TextField {
+            horizontal-stretch: 1;
+            icon: Icons.lock;
+            password: !CryptoState.reveal;
+            label: I18n.crypto-passphrase;
+            placeholder: I18n.crypto-passphrase-placeholder;
+            text <=> CryptoState.passphrase;
+            accepted => { CryptoState.run(); }
+        }
+        if CryptoState.decrypt-with-key: TextField {
+            horizontal-stretch: 1;
+            icon: Icons.shield; mono: true;
+            password: !CryptoState.reveal;
+            label: I18n.crypto-identity;
+            placeholder: I18n.crypto-identity-placeholder;
+            text <=> CryptoState.identity;
+            accepted => { CryptoState.run(); }
+        }
+        Toggle { label: I18n.crypto-reveal; checked <=> CryptoState.reveal; }
+        Action { label: I18n.crypto-decrypt; icon: Icons.folder; primary: true; enabled: root.ready; clicked => { CryptoState.run(); } }
+    }
+    // The switch between the two ways to protect a file, and a sentence saying
+    // what the field above it means. Only a sentence may wrap here.
+    HorizontalLayout {
+        spacing: 12px;
+        if CryptoState.mode == 1: Toggle { label: I18n.crypto-use-key; checked <=> CryptoState.encrypt-with-key; }
+        if CryptoState.mode == 2: Toggle { label: I18n.crypto-use-identity; checked <=> CryptoState.decrypt-with-key; }
+        Text {
+            text: root.note;
+            color: Theme.muted; font-size: 11px; wrap: word-wrap; vertical-alignment: center;
+            horizontal-stretch: 1; min-width: 0px;
+        }
+    }
+    SourcePanel {
+        vertical-stretch: 1; min-height: 160px;
+        icon: Icons.lock;
+        title: CryptoState.result-title == "" ? I18n.crypto-result : CryptoState.result-title;
+        caption: "";
+        // The encrypted or decrypted file is written where the save dialog was
+        // pointed, so there is nothing left here to export.
+        can-save: false;
+        empty-icon-key: "crypto";
+        empty-heading: I18n.crypto-empty-title;
+        empty-description: I18n.crypto-empty-hint;
+        lines: CryptoState.result-lines;
+        stats: CryptoState.stats;
+        has-result: CryptoState.has-result;
+        busy: root.busy;
+        copy => { CryptoState.copy(); }
+    }
+    Text {
+        text: CryptoState.status;
+        color: CryptoState.status-tone == 2 ? Theme.error : CryptoState.status-tone == 1 ? Theme.success : Theme.muted;
+        font-size: 11px; font-weight: CryptoState.status-tone == 0 ? 400 : 600;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.crypto-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

@@ -3,13 +3,15 @@ import { Theme } from "theme.slint";
 import { ToolItem } from "types.slint";
 import { DocumentsState } from "state/documents.slint";
 import { JsonState } from "state/json.slint";
+import { CryptoState } from "state/crypto.slint";
 import { Sidebar } from "components/sidebar.slint";
 import { StatusBar } from "components/status_bar.slint";
 import { Toast } from "components/toast.slint";
 import { DocumentsPage } from "pages/documents.slint";
 import { JsonPage } from "pages/json.slint";
+import { CryptoPage } from "pages/crypto.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
-export { Theme, ToolItem, I18n, DocumentsState, JsonState }
+export { Theme, ToolItem, I18n, DocumentsState, JsonState, CryptoState }
 
 // Application shell: route and compose. A tool's own state lives in its global
 // (state/), its layout in pages/. The shell owns only what every tool shares.
@@ -41,7 +43,8 @@ export component AppWindow inherits Window {
             Sidebar { tools: root.tools; selected-key: root.current-tool.key; navigate(key) => { root.navigate(key); } search(query) => { root.search-tools(query); } language-selected(chinese) => { root.language-selected(chinese); } }
             if root.current-tool.key == "documents": DocumentsPage { busy: root.busy; dragging: root.dragging; }
             if root.current-tool.key == "json": JsonPage { busy: root.busy; }
-            if root.current-tool.key != "documents" && root.current-tool.key != "json": PlaceholderPage { tool: root.current-tool; open-documents => { root.navigate("documents"); } }
+            if root.current-tool.key == "crypto": CryptoPage { busy: root.busy; dragging: root.dragging; }
+            if !root.current-tool.available: PlaceholderPage { tool: root.current-tool; open-documents => { root.navigate("documents"); } }
         }
         StatusBar { repository: root.repository; open-repository => { root.open-repository(); } }
     }

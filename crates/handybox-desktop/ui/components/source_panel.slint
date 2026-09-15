@@ -16,6 +16,11 @@ export component SourcePanel inherits Rectangle {
     in property <string> stats;
     in property <bool> has-result;
     in property <bool> busy;
+    in property <image> icon: Icons.code;
+    /// A tool whose real output is a file it already wrote has nothing to
+    /// export from here, and an export button that saves the report instead
+    /// would be a different thing wearing the same label.
+    in property <bool> can-save: true;
     in property <string> empty-icon-key;
     in property <string> empty-heading;
     in property <string> empty-description;
@@ -26,12 +31,12 @@ export component SourcePanel inherits Rectangle {
         padding: 18px; spacing: 15px;
         HorizontalLayout {
             spacing: 9px;
-            Icon { source: Icons.code; ink: Theme.accent; width: 18px; }
+            Icon { source: root.icon; ink: Theme.accent; width: 18px; }
             Text { text: root.title; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
             Text { text: root.caption; font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px; }
             Rectangle { horizontal-stretch: 1; }
             Action { label: I18n.copy; icon: Icons.copy; enabled: root.has-result && !root.busy; clicked => { root.copy(); } }
-            Action { label: root.save-label; icon: Icons.download; enabled: root.has-result && !root.busy; clicked => { root.save(); } }
+            if root.can-save: Action { label: root.save-label; icon: Icons.download; enabled: root.has-result && !root.busy; clicked => { root.save(); } }
         }
         Rectangle { height: 1px; background: Theme.border; }
         if !root.has-result: EmptyState {

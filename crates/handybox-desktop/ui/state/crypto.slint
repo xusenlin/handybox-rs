@@ -1,0 +1,37 @@
+// Everything the Hash & encrypt tool owns. One source file drives all three
+// operations: every file can be hashed, encrypted or decrypted, so the mode
+// decides what is asked for, not which file may be chosen.
+export global CryptoState {
+    // 0 checksum, 1 encrypt, 2 decrypt. An index rather than an enum: the page
+    // uses it to pick its own labels, and Rust maps it to an operation once.
+    in-out property <int> mode;
+    in property <string> filename;
+    in property <string> detail;
+    /// Real work, not a native dialog: only this drives the progress bar.
+    in property <bool> working;
+    in-out property <string> expected;
+    in-out property <string> passphrase;
+    /// Kept apart per direction, so a public key can never end up in the field
+    /// that asks for a secret one.
+    in-out property <string> recipients;
+    in-out property <string> identity;
+    in-out property <bool> encrypt-with-key;
+    in-out property <bool> decrypt-with-key;
+    /// Unmask the secret. Encrypting with a typo is unrecoverable, so there has
+    /// to be a way to read back what was typed.
+    in-out property <bool> reveal;
+    in property <string> result-title;
+    in property <[string]> result-lines;
+    in property <string> stats;
+    in property <bool> has-result;
+    in property <string> status;
+    // 0 neutral, 1 confirmed, 2 needs attention. A checksum verdict is neither
+    // an error nor neutral, and a red or green line is the answer people look
+    // for; a freshly generated secret key uses the same red to be noticed.
+    in property <int> status-tone;
+    callback choose();
+    callback mode-selected(int);
+    callback run();
+    callback generate-key();
+    callback copy();
+}

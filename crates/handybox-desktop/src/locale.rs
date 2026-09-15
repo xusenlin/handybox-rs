@@ -1,7 +1,7 @@
 //! Runtime text is translated at display time, never frozen into worker events.
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
-    tools::{documents::DocumentIssue, json::JsonIssue},
+    tools::{crypto::CryptoIssue, documents::DocumentIssue, json::JsonIssue},
 };
 use std::path::PathBuf;
 
@@ -122,6 +122,7 @@ pub fn matches_tool(tool: &ToolDescriptor, query: &str) -> bool {
 pub enum FailureKind {
     Document(DocumentIssue),
     Json(JsonIssue),
+    Crypto(CryptoIssue),
     Clipboard,
     Operation,
     Worker,
@@ -150,6 +151,16 @@ impl Failure {
                 .downcast_ref::<JsonIssue>()
                 .copied()
                 .map(FailureKind::Json),
+            error,
+        )
+    }
+
+    pub fn crypto(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<CryptoIssue>()
+                .copied()
+                .map(FailureKind::Crypto),
             error,
         )
     }
@@ -227,6 +238,32 @@ impl Failure {
                 JsonIssue::WriteOutput => "写入 JSON 失败。".into(),
                 JsonIssue::SaveOutput => "无法保存到目标文件。".into(),
             },
+            FailureKind::Crypto(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Crypto(issue) => match issue {
+                CryptoIssue::InputMissing => "找不到输入文件。",
+                CryptoIssue::Read => "无法读取文件，请检查访问权限。",
+                CryptoIssue::NotFile => "请选择文件，而不是文件夹。",
+                CryptoIssue::TooLarge => "文件超过 2 GiB，请选择更小的文件。",
+                CryptoIssue::Expected => {
+                    "请填写十六进制的 SHA-256 或 SHA-512 校验和，或留空只计算摘要。"
+                }
+                CryptoIssue::Passphrase => "请输入密码。",
+                CryptoIssue::Recipient => "接收者必须是以 age1 开头的 age 公钥。",
+                CryptoIssue::Identity => "私钥以 AGE-SECRET-KEY-1 开头。",
+                CryptoIssue::NotEncrypted => "这不是 age 加密文件。",
+                CryptoIssue::NeedsPassphrase => "该文件由密码保护，而不是密钥，请输入它的密码。",
+                CryptoIssue::NeedsKey => "该文件加密给了公钥，而不是密码，请提供对应的私钥。",
+                CryptoIssue::WrongSecret => "密码或密钥与该文件加密时使用的不一致。",
+                CryptoIssue::ExcessiveWork => "打开该文件所需的计算量超出本机允许的上限。",
+                CryptoIssue::Encrypt => "加密失败。",
+                CryptoIssue::Decrypt => "解密失败：文件可能已损坏或不完整。",
+                CryptoIssue::InvalidExtension => "加密文件必须使用 .age 扩展名。",
+                CryptoIssue::SourceOverwrite => "不能覆盖正在读取的文件，请选择其他路径。",
+                CryptoIssue::CreateOutput => "无法在目标目录创建文件。",
+                CryptoIssue::WriteOutput => "写入文件失败。",
+                CryptoIssue::SaveOutput => "无法保存到目标文件。",
+            }
+            .into(),
             FailureKind::Clipboard => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -263,6 +300,10 @@ pub enum Message {
     Copying,
     Saving,
     Running,
+    Hashing,
+    Encrypting,
+    Decrypting,
+    KeyGenerated,
     Copied,
     Saved(PathBuf),
     Cancelled,
@@ -284,6 +325,7 @@ impl Message {
                 | Self::Cancelled
                 | Self::EmptyResult
                 | Self::NoOutput
+                | Self::KeyGenerated
                 | Self::Error(_)
         )
     }
@@ -295,14 +337,21 @@ impl Message {
                 "准备就绪，选择一份文档开始。",
             ),
             Self::Picking => lang.text(
-                "Choose a document in the file dialog…",
-                "请在文件对话框中选择文档…",
+                "Choose a file in the file dialog…",
+                "请在文件对话框中选择文件…",
             ),
             Self::Reading => lang.text("Reading your document…", "正在读取文档…"),
             Self::Converting => lang.text("Converting locally…", "正在本地转换…"),
             Self::Copying => lang.text("Copying to the clipboard…", "正在复制到剪贴板…"),
             Self::Running => lang.text("Running your filter locally…", "正在本地运行表达式…"),
             Self::Saving => lang.text("Choose where to save your file…", "请选择文件的保存位置…"),
+            Self::Hashing => lang.text("Reading and hashing locally…", "正在本地读取并计算摘要…"),
+            Self::Encrypting => lang.text("Encrypting locally…", "正在本地加密…"),
+            Self::Decrypting => lang.text("Decrypting locally…", "正在本地解密…"),
+            Self::KeyGenerated => lang.text(
+                "New key pair created. Save the secret key somewhere safe: without it, nothing encrypted to this public key can be opened again.",
+                "已生成新的密钥对。请妥善保存私钥：没有它，加密给该公钥的文件将无法再打开。",
+            ),
             Self::Copied => lang.text("Copied to your clipboard.", "已复制到剪贴板。"),
             Self::Cancelled => lang.text(
                 "Operation cancelled. Your current result is unchanged.",
@@ -387,5 +436,23 @@ mod tests {
                 .contains("more than one top-level value")
         );
         assert!(stream.render(Language::Chinese).contains("多个顶层值"));
+    }
+
+    #[test]
+    fn crypto_failures_name_the_secret_the_file_actually_wants() {
+        // The distinction age itself reports as "no matching keys": saying which
+        // kind of secret is missing is the whole point of keeping it separate.
+        let needs = Failure::crypto(anyhow::anyhow!(CryptoIssue::NeedsPassphrase));
+        assert!(needs.render(Language::English).contains("passphrase"));
+        assert!(needs.render(Language::Chinese).contains("密码"));
+        let wrong = Failure::crypto(anyhow::anyhow!(CryptoIssue::WrongSecret));
+        assert!(wrong.render(Language::Chinese).contains("密钥"));
+        // A crypto failure belongs in the toast, never on the JSON status line.
+        assert!(!wrong.about_input());
+        // age's own diagnostic is kept as the cause, in either language.
+        let detail =
+            Failure::crypto(anyhow::anyhow!("invalid bech32").context(CryptoIssue::Identity));
+        assert!(detail.render(Language::English).contains("invalid bech32"));
+        assert!(detail.render(Language::Chinese).contains("invalid bech32"));
     }
 }

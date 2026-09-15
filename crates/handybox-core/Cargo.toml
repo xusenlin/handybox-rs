@@ -5,12 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+age = "0.12"
 anydoc = "=0.2.4"
 anyhow.workspace = true
 jaq-core = "3"
 jaq-json = "2"
 jaq-std = "3"
 serde_json = "1"
+sha2 = "0.10"
 tempfile.workspace = true
 
 [dev-dependencies]

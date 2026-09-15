@@ -48,7 +48,7 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "Verify file integrity and protect local data.",
         libraries: "sha2 + age",
         capabilities: "SHA-256 / SHA-512 checksums and verification\nage file encryption and decryption\nPassphrase and recipient public key modes",
-        available: false,
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Diff,

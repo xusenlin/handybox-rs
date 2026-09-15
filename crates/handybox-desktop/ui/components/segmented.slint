@@ -1,0 +1,105 @@
+import { Theme } from "../theme.slint";
+
+// Exclusive choice between a few things a tool can do to the same input. Not a
+// TabWidget: the source card and the result panel below belong to all of the
+// options, and only the controls between them change.
+export component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in property <bool> enabled: true;
+    in-out property <int> selected;
+    callback changed(int);
+    height: 36px;
+    min-width: row.min-width;
+    // Size to the labels. Without this a layout hands the control a share of the
+    // leftover width and the segments stretch across the page.
+    horizontal-stretch: 0;
+    border-radius: 9px;
+    border-width: 1px;
+    border-color: Theme.border;
+    background: Theme.canvas;
+    clip: true;
+    forward-focus: focus;
+
+    function select(index: int) {
+        if !root.enabled || index == root.selected { return; }
+        root.selected = index;
+        root.changed(index);
+    }
+
+    row := HorizontalLayout {
+        padding: 3px; spacing: 3px;
+        for option[index] in root.options: segment := Rectangle {
+            private property <bool> active: root.selected == index;
+            border-radius: 7px;
+            background: touch.has-hover && root.enabled && !segment.active ? Theme.tint : transparent;
+            // The pill springs open behind the label. Everything it needs is its
+            // own segment's size, so nothing has to be measured or reported
+            // upwards: a segment that tried to publish its geometry would have
+            // to read it back during layout, which Slint stops as a recursion.
+            Rectangle {
+                // The one animated value. It overshoots past the segment's edge
+                // and settles — that overshoot is the whole spring. The 3px gap
+                // between segments absorbs it.
+                private property <length> inset: segment.active ? 0px : 7px;
+                x: self.inset;
+                y: self.inset;
+                width: parent.width - self.inset * 2;
+                height: parent.height - self.inset * 2;
+                border-radius: 7px;
+                background: Theme.surface;
+                border-width: 1px;
+                border-color: Theme.border;
+                opacity: segment.active ? 1 : 0;
+                animate inset { duration: 300ms; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
+                animate opacity { duration: 150ms; easing: ease-out; }
+            }
+            accessible-role: tab;
+            accessible-label: option;
+            accessible-item-selected: segment.active;
+            accessible-enabled: root.enabled;
+            accessible-action-default => { root.select(index); }
+            HorizontalLayout {
+                padding-left: 15px; padding-right: 15px;
+                Text {
+                    text: option;
+                    font-size: Theme.small;
+                    // Deliberately one weight for every segment: bold text is
+                    // wider, so weighting the selected one would resize the
+                    // segments on every switch and the row would twitch. The
+                    // pill and the ink colour carry the state instead.
+                    font-weight: 600;
+                    color: !root.enabled ? #a0aab2 : segment.active ? Theme.ink : Theme.muted;
+                    vertical-alignment: center; horizontal-alignment: center;
+                    animate color { duration: 180ms; easing: ease-out; }
+                }
+            }
+            touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: pointer;
+                clicked => { root.select(index); }
+            }
+        }
+    }
+    // One stop in the tab order for the whole group, moved through with the
+    // arrow keys — the same way a set of radio buttons behaves elsewhere.
+    focus := FocusScope {
+        width: 0px; enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == Key.LeftArrow && root.selected > 0 {
+                root.select(root.selected - 1);
+                return accept;
+            }
+            if event.text == Key.RightArrow && root.selected < root.options.length - 1 {
+                root.select(root.selected + 1);
+                return accept;
+            }
+            return reject;
+        }
+    }
+    Rectangle {
+        // Drawn over the segments so the ring is not clipped by their corners.
+        border-radius: parent.border-radius;
+        border-width: focus.has-focus ? 1px : 0px;
+        border-color: Theme.accent;
+    }
+}

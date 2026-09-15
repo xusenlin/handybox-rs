@@ -3,7 +3,7 @@ use std::collections::HashSet;
 
 #[test]
 fn routes_are_unique_and_only_implemented_tools_are_available() {
-    let ready = [ToolId::Documents, ToolId::Json];
+    let ready = [ToolId::Documents, ToolId::Json, ToolId::Crypto];
     let mut keys = HashSet::new();
     for tool in TOOLS {
         assert!(keys.insert(tool.key), "duplicate route {}", tool.key);

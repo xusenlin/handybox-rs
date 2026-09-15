@@ -1,5 +1,6 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
+pub mod crypto;
 pub mod documents;
 pub mod json;
 
@@ -11,7 +12,7 @@ use crate::{
 };
 use handybox_core::{
     catalog::{TOOLS, ToolDescriptor},
-    tools::json as core_json,
+    tools::{crypto as core_crypto, json as core_json},
 };
 use i_slint_backend_winit::{EventResult, WinitWindowAccessor, winit::event::WindowEvent};
 use slint::{ComponentHandle, ModelRc, Timer, TimerMode, VecModel};
@@ -90,6 +91,13 @@ impl Shell {
         self.refresh_notice();
     }
 
+    /// Whether a tool's page is the one on screen.
+    pub fn showing(&self, key: &str) -> bool {
+        self.ui
+            .upgrade()
+            .is_some_and(|ui| ui.get_current_tool().key == key)
+    }
+
     pub fn navigate(&self, key: &str) {
         let Some(ui) = self.ui.upgrade() else { return };
         let language = self.language();
@@ -157,9 +165,21 @@ fn apply_language(ui: &AppWindow, language: Language) {
 }
 
 /// Hand a file to the tool that handles it. The extension is all there is to go
-/// on before reading it, and it is enough to tell these two apart.
-fn open(shell: &Shell, documents: &documents::Controller, json: &json::Controller, path: PathBuf) {
-    if core_json::claims(&path) {
+/// on before reading it, and it is enough to tell these apart — except for the
+/// crypto tool, which takes any file at all: while its page is the one showing,
+/// a dropped file is its input rather than something to route away.
+fn open(
+    shell: &Shell,
+    documents: &documents::Controller,
+    json: &json::Controller,
+    crypto: &crypto::Controller,
+    path: PathBuf,
+) {
+    if shell.showing("crypto") {
+        crypto.open(shell, path, None);
+    } else if core_crypto::claims(&path) {
+        crypto.open(shell, path, Some(crypto::Mode::Decrypt));
+    } else if core_json::claims(&path) {
         json.open(shell, path);
     } else {
         documents.convert(shell, path);
@@ -184,6 +204,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     };
     let documents = documents::Controller::new(ui);
     let json = json::Controller::new(ui);
+    let crypto = crypto::Controller::new(ui);
 
     ui.set_repository(link::REPOSITORY.into());
     apply_language(ui, shell.language());
@@ -192,8 +213,10 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     shell.refresh_notice();
     documents.bind(&shell);
     json.bind(&shell);
+    crypto.bind(&shell);
     documents.refresh(shell.language());
     json.refresh(shell.language());
+    crypto.refresh(shell.language());
 
     let bound = shell.clone();
     ui.on_navigate(move |key| bound.navigate(&key));
@@ -205,7 +228,8 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     let bound = shell.clone();
     // Only presentation metadata is refreshed. Documents, results, selection,
     // route and jobs in flight are untouched when the language changes.
-    let (relabel_documents, relabel_json) = (documents.clone(), json.clone());
+    let (relabel_documents, relabel_json, relabel_crypto) =
+        (documents.clone(), json.clone(), crypto.clone());
     ui.on_language_selected(move |chinese| {
         let Some(ui) = bound.ui.upgrade() else { return };
         {
@@ -221,6 +245,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
         bound.refresh_notice();
         relabel_documents.refresh(bound.language());
         relabel_json.refresh(bound.language());
+        relabel_crypto.refresh(bound.language());
     });
     let bound = shell.clone();
     // The toast expires on its own; clearing the message keeps a later refresh
@@ -246,8 +271,13 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
 
     // A file dropped anywhere in the window opens in the tool that handles it,
     // whichever page is showing, so the route follows the file.
-    let (bound, dropped_documents, dropped_json, weak) =
-        (shell.clone(), documents.clone(), json.clone(), ui.as_weak());
+    let (bound, dropped_documents, dropped_json, dropped_crypto, weak) = (
+        shell.clone(),
+        documents.clone(),
+        json.clone(),
+        crypto.clone(),
+        ui.as_weak(),
+    );
     ui.window().on_winit_window_event(move |_, event| {
         let Some(ui) = weak.upgrade() else {
             return EventResult::Propagate;
@@ -258,7 +288,13 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
             WindowEvent::DroppedFile(path) => {
                 ui.set_dragging(false);
                 if !ui.get_busy() {
-                    open(&bound, &dropped_documents, &dropped_json, path.clone());
+                    open(
+                        &bound,
+                        &dropped_documents,
+                        &dropped_json,
+                        &dropped_crypto,
+                        path.clone(),
+                    );
                 }
             }
             _ => {}
@@ -267,7 +303,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     });
 
     if let Some(path) = initial_file {
-        open(&shell, &documents, &json, path);
+        open(&shell, &documents, &json, &crypto, path);
     }
     let weak = ui.as_weak();
     let timer = Timer::default();
@@ -279,6 +315,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
             match event {
                 Event::Documents(event) => documents.handle(&shell, event),
                 Event::Json(event) => json.handle(&shell, event),
+                Event::Crypto(event) => crypto.handle(&shell, event),
                 Event::Finished(outcome) => shell.finish(outcome),
             }
         }

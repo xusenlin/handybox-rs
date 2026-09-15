@@ -6,7 +6,7 @@ English | [简体中文](README.zh-CN.md)
 
 A fast, offline-first desktop utility toolbox built with Rust and Slint.
 
-HandyBox brings everyday utilities into a single native desktop workspace. This version ships an **English / Simplified Chinese UI**, a working **document-to-Markdown converter**, a working **JSON workbench** with jq-style queries, and navigable, descriptive placeholders for the next seven tools. No account, API key, server, WebView, or document upload is required.
+HandyBox brings everyday utilities into a single native desktop workspace. This version ships an **English / Simplified Chinese UI**, a working **document-to-Markdown converter**, a working **JSON workbench** with jq-style queries, a working **Hash & encrypt** tool built on sha2 and age, and navigable, descriptive placeholders for the next six tools. No account, API key, server, WebView, or document upload is required.
 
 Use **English / 中文** at the bottom of the sidebar to switch languages immediately. The current tool, search query and converted document are retained. Tool search accepts either language and engine names. English is the default; the selection is saved locally for the next launch.
 
@@ -27,7 +27,7 @@ SLINT_BACKEND=winit-software cargo run --locked
 cargo build --release --locked
 ```
 
-The repository pins **Rust 1.88.0**, **Slint 1.13.1**, **anydoc 0.2.4** and the **jaq 3** crates; commit `Cargo.lock` with dependency updates. Rustup installs the pinned toolchain if needed. Initial dependency downloads require a connection; the built application processes documents entirely locally.
+The repository pins **Rust 1.88.0**, **Slint 1.13.1**, **anydoc 0.2.4**, the **jaq 3** crates and **age 0.12**; commit `Cargo.lock` with dependency updates. Rustup installs the pinned toolchain if needed. Initial dependency downloads require a connection; the built application processes documents entirely locally.
 
 On macOS, install Xcode Command Line Tools. On Windows, use the MSVC Rust toolchain and Visual Studio C++ Build Tools. On Debian/Ubuntu, install desktop build dependencies:
 
@@ -80,7 +80,7 @@ The artifacts carry an ad-hoc signature at most: there is no Developer ID signin
 | --- | --- | --- |
 | Document converter | `anydoc` | Implemented: choose/drop a file, convert, inspect Markdown source, copy all, export `.md` |
 | JSON workbench | `jaq` | Implemented: validate, format, minify, query with jq syntax, copy and export `.json` |
-| Hash & encrypt | `sha2` + `age` | Placeholder: checksums, verification, encryption and decryption |
+| Hash & encrypt | `sha2` + `age` | Implemented: SHA-256/SHA-512 checksums and verification, age encryption and decryption by passphrase or key |
 | Text diff | `similar` | Placeholder: text/file comparison and unified diffs |
 | Image studio | `image` + `fast_image_resize` + `oxipng` + `nom-exif` | Placeholder: convert, resize, optimize PNG and inspect metadata |
 | Archives | `zip` + `sevenz-rust2` | Placeholder: archive preview, creation and extraction |
@@ -134,6 +134,25 @@ Behavior and current limits:
 
 Try [`examples/sample.json`](examples/sample.json) with a filter such as `.tools | map(.key)` or `.tools[] | select(.ready) | .engine`.
 
+## Hash & encrypt
+
+One source file drives all three operations, because every file can be hashed, encrypted or decrypted; the switch at the top decides what is asked for beside it. Choose a file, drop one onto the window while this page is showing, or pass a path at launch. A `.age` file opens here in **Decrypt** whichever page you were on.
+
+**Checksum** reads the file once and reports both SHA-256 and SHA-512. Paste a checksum into the field to verify: its length says which algorithm it is, so there is nothing to pick, and a whole line of `shasum` output works because only the digest field is read. The verdict is a green or red line under the result — a mismatch is stated plainly rather than left for you to compare by eye.
+
+**Encrypt** and **Decrypt** use [age](https://github.com/str4d/rage) in either of its two modes:
+
+- **Passphrase** (scrypt). The work factor targets about a second on this device, each way. There is no recovery: a lost passphrase is a lost file, which is why the field can be unmasked with **Show** before you commit to it.
+- **Public key** (X25519). Paste one or more `age1…` recipients, one per line or separated by spaces; **Generate key pair** adds a fresh one and appends its public half to the field. The secret key is shown once, in the result panel, and is never written anywhere — save it yourself, or nothing encrypted to that public key can be opened again. Decryption takes the matching `AGE-SECRET-KEY-1…`.
+
+Behavior and current limits:
+
+- **Up to 2 GiB per file.** Everything streams in fixed chunks and is never held whole, so the cap is a patience budget: an operation cannot be cancelled once the worker has started it.
+- The header says which kind of secret a file wants, so offering a key to a passphrase-protected file (or the reverse) is reported as exactly that, instead of age's generic "no matching keys".
+- Output is written through a temporary file and an atomic persist. Encrypted output requires the `.age` extension, and neither direction will overwrite the file it is reading. The native dialog owns overwrite confirmation.
+- Recipients and keys are parsed before anything is read or written, so a typo costs nothing but the message.
+- Secrets live only in the page's fields and the worker command. Nothing is written to disk except the file you chose a destination for.
+
 ## Architecture
 
 The workspace separates native UI concerns from reusable tool operations:
@@ -144,9 +163,11 @@ crates/
     src/catalog.rs              # ToolId + metadata: single source of truth
     src/tools/documents.rs      # Validation, anydoc adapter, result, export
     src/tools/json.rs           # Parsing, formatting, jaq adapter, bounded runs
+    src/tools/crypto.rs         # Streaming digests, age encryption and decryption
     tests/catalog.rs            # Stable routes and implementation status
     tests/documents.rs          # Conversion and file-safety integration tests
     tests/json.rs               # Formatting, queries, limits and export safety
+    tests/crypto.rs             # Digests, verification and age round trips
   handybox-desktop/
     build.rs                    # Compiles the Slint component tree
     src/main.rs                 # Startup, monospace font, optional initial document
@@ -157,9 +178,11 @@ crates/
     src/controllers/mod.rs      # Shell: routing, language, notices, event pump
     src/controllers/documents.rs# Converter state, callbacks and events
     src/controllers/json.rs     # Workbench state, validation clock and events
+    src/controllers/crypto.rs   # Source file, the three operations and their report
     src/worker/mod.rs           # Bounded background command/event bridge
     src/worker/documents.rs     # Pickers, conversion and Markdown export
     src/worker/json.rs          # Validation, jq runs, file open and export
+    src/worker/crypto.rs        # Pickers, digests, age encryption and decryption
     ui/app.slint                # Shell only: sidebar + active page + status
     ui/theme.slint              # Shared palette, fonts, spacing, radius
     ui/icons.slint              # Embedded SVG asset catalog
@@ -168,9 +191,11 @@ crates/
     ui/types.slint              # UI-facing data models
     ui/state/documents.slint    # Converter properties and callbacks
     ui/state/json.slint         # Workbench properties and callbacks
+    ui/state/crypto.slint       # Hash & encrypt properties and callbacks
     ui/components/              # Reusable visual building blocks
     ui/pages/documents.slint    # Composes the converter page
     ui/pages/json.slint         # Composes the workbench page
+    ui/pages/crypto.slint       # Composes the hash & encrypt page
     ui/pages/placeholder.slint  # Metadata-driven planned-tool page
 assets/app-icon.png              # Rounded icon: sidebar and window
 assets/macos-icon.png            # Icon on Apple's grid: Dock and .icns
