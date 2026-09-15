@@ -7,6 +7,10 @@ rust-version.workspace = true
 [dependencies]
 anydoc = "=0.2.4"
 anyhow.workspace = true
+jaq-core = "3"
+jaq-json = "2"
+jaq-std = "3"
+serde_json = "1"
 tempfile.workspace = true
 
 [dev-dependencies]

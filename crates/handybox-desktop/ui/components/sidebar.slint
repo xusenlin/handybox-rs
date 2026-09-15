@@ -4,7 +4,7 @@ import { Theme } from "../theme.slint";
 import { ToolItem } from "../types.slint";
 import { NavItem } from "nav_item.slint";
 import { Brand } from "brand.slint";
-import { SearchField } from "search_field.slint";
+import { TextField } from "text_field.slint";
 import { Icon } from "icon.slint";
 import { Icons } from "../icons.slint";
 import { SettingsMenu } from "settings_menu.slint";
@@ -36,7 +36,7 @@ export component Sidebar inherits Rectangle {
         }
         HorizontalLayout {
             padding-right: 11px;
-            SearchField { edited(text) => { root.search(text); } }
+            TextField { icon: Icons.search; placeholder: I18n.search-placeholder; label: I18n.search; edited(text) => { root.search(text); } }
         }
         Text { text: I18n.workspace; font-size: 10px; font-weight: 600; color: Theme.muted; }
         ScrollView {
@@ -66,11 +66,10 @@ export component Sidebar inherits Rectangle {
                         Text { text: I18n.local; color: Theme.accent; font-size: 11px; font-weight: 600; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
                     }
-                    Text { text: I18n.privacy; color: Theme.muted; font-size: 10px; }
+                    Text { text: I18n.built-with; color: Theme.muted; font-size: 10px; }
                 }
             }
         }
-        Text { text: I18n.built-with; color: #929fa8; font-size: 10px; }
     }
     Rectangle { x: parent.width - 1px; width: 1px; height: parent.height; background: Theme.border; }
 }

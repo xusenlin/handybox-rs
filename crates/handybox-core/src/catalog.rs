@@ -39,7 +39,7 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "Make structured data easier to read and transform.",
         libraries: "jaq",
         capabilities: "Format and validate JSON\nQuery, filter and transform with jq syntax\nInspect and export results",
-        available: false,
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Crypto,

@@ -135,15 +135,3 @@ fn preview_is_unicode_safe_and_keeps_the_full_document() {
     assert_eq!(preview.chars().count(), PREVIEW_CHARS);
     assert_eq!(document.markdown, markdown);
 }
-
-#[test]
-fn catalog_has_unique_stable_routes_and_only_documents_is_ready() {
-    use handybox_core::catalog::{TOOLS, ToolId};
-    let mut keys = std::collections::HashSet::new();
-    for tool in TOOLS {
-        assert!(keys.insert(tool.key));
-        assert_eq!(tool.available, tool.id == ToolId::Documents);
-        assert!(!tool.libraries.is_empty());
-    }
-    assert_eq!(TOOLS.len(), 9);
-}

@@ -1,0 +1,14 @@
+// Everything the document converter owns. One global per tool keeps the window
+// surface to shell concerns and lets a page bind to its state without the shell
+// forwarding a property for every field.
+export global DocumentsState {
+    in property <string> filename;
+    in property <string> detail;
+    in property <[string]> markdown-lines;
+    in property <string> stats;
+    in property <bool> has-result;
+    in property <bool> converting;
+    callback choose();
+    callback copy();
+    callback save();
+}

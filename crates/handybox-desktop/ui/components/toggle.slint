@@ -1,0 +1,60 @@
+import { Theme } from "../theme.slint";
+
+// A small on/off control for a setting that changes how a tool reads its input.
+// Deliberately not `std-widgets`' `Switch`: that one follows the Fluent palette
+// rather than `Theme`.
+export component Toggle inherits Rectangle {
+    in property <string> label;
+    in-out property <bool> checked;
+    callback toggled(bool);
+    height: 22px;
+    min-width: row.min-width;
+    horizontal-stretch: 0;
+    accessible-role: checkbox;
+    accessible-label: root.label;
+    accessible-checked: root.checked;
+    accessible-action-default => { root.flip(); }
+    forward-focus: focus;
+
+    function flip() {
+        root.checked = !root.checked;
+        root.toggled(root.checked);
+    }
+
+    row := HorizontalLayout {
+        spacing: 7px;
+        // A fixed-size child is not centred on the cross axis of a layout.
+        VerticalLayout {
+            alignment: center;
+            track := Rectangle {
+                width: 30px; height: 17px; border-radius: 9px;
+                background: root.checked ? Theme.accent : #d3dae0;
+                border-width: 1px;
+                border-color: focus.has-focus ? Theme.accent : transparent;
+                Rectangle {
+                    x: root.checked ? parent.width - self.width - 2px : 2px;
+                    y: 2px; width: 13px; height: 13px; border-radius: 7px;
+                    background: white;
+                    animate x { duration: 120ms; easing: ease-out; }
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: 11px;
+            color: root.checked ? Theme.ink : Theme.muted;
+            vertical-alignment: center;
+        }
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.flip(); }
+    }
+    focus := FocusScope {
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == " " || event.text == "\n" { root.flip(); return accept; }
+            return reject;
+        }
+    }
+}

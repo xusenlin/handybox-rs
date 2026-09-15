@@ -1,6 +1,6 @@
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-mod controller;
+mod controllers;
 mod link;
 mod locale;
 mod macos;
@@ -52,7 +52,7 @@ fn run() -> anyhow::Result<()> {
         }
         .into(),
     );
-    let _events = controller::bind(&ui, file)?;
+    let _events = controllers::bind(&ui, file)?;
     // Show before running the loop: the title bar appearance needs the native
     // window, which only exists once the component is shown.
     ui.show()?;

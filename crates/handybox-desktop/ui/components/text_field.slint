@@ -1,10 +1,16 @@
-import { I18n } from "../i18n.slint";
 import { Theme } from "../theme.slint";
-import { Icons } from "../icons.slint";
 import { Icon } from "icon.slint";
 
-export component SearchField inherits Rectangle {
+// One-line input with a leading icon. Used for the sidebar search and the jq
+// filter; `mono` is the only difference between a phrase and an expression.
+export component TextField inherits Rectangle {
+    in property <image> icon;
+    in property <string> placeholder;
+    in property <string> label;
+    in property <bool> mono: false;
+    in-out property <string> text <=> input.text;
     callback edited(string);
+    callback accepted();
     height: 36px;
     background: input.has-focus ? Theme.surface : Theme.canvas;
     border-radius: 8px;
@@ -13,20 +19,23 @@ export component SearchField inherits Rectangle {
     forward-focus: input;
     HorizontalLayout {
         padding-left: 10px; padding-right: 10px; spacing: 8px;
-        Icon { source: Icons.search; width: 15px; }
+        Icon { source: root.icon; width: 15px; }
         Rectangle {
             horizontal-stretch: 1;
             input := TextInput {
                 width: parent.width; height: parent.height;
                 single-line: true; vertical-alignment: center;
                 color: Theme.ink; font-size: 12px;
-                accessible-label: I18n.search;
+                font-family: root.mono ? Theme.mono-family : Theme.font-family;
+                accessible-label: root.label;
                 edited => { root.edited(self.text); }
+                accepted => { root.accepted(); }
             }
             // Span the field and align left: a child of a Rectangle is centred
             // by default, which would leave the hint floating mid-field.
             if input.text == "": Text {
-                text: I18n.search-placeholder; color: Theme.muted; font-size: 12px;
+                text: root.placeholder; color: Theme.muted; font-size: 12px;
+                font-family: root.mono ? Theme.mono-family : Theme.font-family;
                 x: 0; width: parent.width; height: parent.height;
                 vertical-alignment: center; horizontal-alignment: left;
             }

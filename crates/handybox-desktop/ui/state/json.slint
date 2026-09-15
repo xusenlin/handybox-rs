@@ -1,0 +1,25 @@
+// Everything the JSON workbench owns. `input` and `filter` are in-out: the
+// editor writes them as the user types, and Rust writes them when a file, the
+// sample or a reset replaces the document.
+export global JsonState {
+    in-out property <string> input;
+    in-out property <string> filter;
+    in property <string> source;
+    in property <string> status;
+    in property <bool> status-error;
+    in property <[string]> result-lines;
+    in property <string> stats;
+    in property <bool> has-result;
+    in property <bool> running;
+    /// RFC 8259 instead of jq: refuse a document with several top-level values.
+    in-out property <bool> strict;
+    callback edited();
+    callback strict-toggled();
+    callback run();
+    callback minify();
+    callback open();
+    callback sample();
+    callback clear();
+    callback copy();
+    callback save();
+}

@@ -1,0 +1,83 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { SourcePanel } from "../components/source_panel.slint";
+import { JsonInput } from "../components/json_input.slint";
+import { TextField } from "../components/text_field.slint";
+import { Toggle } from "../components/toggle.slint";
+import { Action } from "../components/action.slint";
+import { Icons } from "../icons.slint";
+import { JsonState } from "../state/json.slint";
+
+export component JsonPage inherits VerticalLayout {
+    in property <bool> busy;
+    padding: Theme.page-padding; spacing: 18px;
+    PageHeader { heading: I18n.json-title; description: I18n.json-description; badge: I18n.json-badge; }
+    // The filter is the tool: an empty one is jq's identity, so the same two
+    // actions cover formatting a document and transforming it.
+    HorizontalLayout {
+        spacing: 10px;
+        TextField {
+            horizontal-stretch: 1;
+            icon: Icons.code; mono: true;
+            placeholder: I18n.json-filter-placeholder;
+            label: I18n.json-filter;
+            text <=> JsonState.filter;
+            accepted => { JsonState.run(); }
+        }
+        Action { label: I18n.json-run; icon: Icons.arrow-right; primary: true; enabled: !root.busy; clicked => { JsonState.run(); } }
+        Action { label: I18n.json-minify; icon: Icons.diff; enabled: !root.busy; clicked => { JsonState.minify(); } }
+    }
+    // The two cards split the row in half and stay there. Each sits in a plain
+    // Rectangle and sizes itself to it: a layout hands out space by its
+    // children's *preferred* widths, so the card with the wider header would
+    // otherwise keep growing and push the other card's buttons off the window.
+    // A child with explicit geometry reports nothing upwards, so neither half
+    // can grow at the other's expense.
+    HorizontalLayout {
+        spacing: 16px; vertical-stretch: 1;
+        Rectangle {
+            horizontal-stretch: 1;
+            JsonInput {
+                busy: root.busy;
+                x: 0; y: 0; width: parent.width; height: parent.height;
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            SourcePanel {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                title: I18n.json-result;
+                caption: JsonState.running ? I18n.json-running : I18n.json-result-caption;
+                save-label: I18n.json-export;
+                empty-icon-key: "json";
+                empty-heading: I18n.json-empty-title;
+                empty-description: I18n.json-empty-hint;
+                lines: JsonState.result-lines;
+                stats: JsonState.stats;
+                has-result: JsonState.has-result;
+                busy: root.busy;
+                copy => { JsonState.copy(); }
+                save => { JsonState.save(); }
+            }
+        }
+    }
+    // The validation line runs the full width under both cards, with the switch
+    // that decides what it says. A message of any length can only wrap here; it
+    // can never take width from a card.
+    HorizontalLayout {
+        spacing: 12px;
+        Text {
+            text: JsonState.status;
+            color: JsonState.status-error ? Theme.error : Theme.muted;
+            font-size: 11px; wrap: word-wrap; vertical-alignment: center;
+            horizontal-stretch: 1; min-width: 0px;
+        }
+        Toggle {
+            label: I18n.json-strict;
+            checked <=> JsonState.strict;
+            toggled => { JsonState.strict-toggled(); }
+        }
+    }
+    Text { text: I18n.json-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

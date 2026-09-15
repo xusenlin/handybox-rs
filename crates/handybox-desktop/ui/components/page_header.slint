@@ -11,5 +11,5 @@ export component PageHeader inherits VerticalLayout {
         Rectangle { horizontal-stretch: 1; }
         Badge { label: root.badge; highlighted: true; }
     }
-    Text { text: root.description; color: Theme.muted; font-size: Theme.body; wrap: word-wrap; }
+    Text { text: root.description; color: Theme.muted; font-size: Theme.body; wrap: word-wrap; min-width: 0px; }
 }

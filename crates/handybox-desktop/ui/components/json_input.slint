@@ -1,0 +1,40 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { TextEditor } from "text_editor.slint";
+import { JsonState } from "../state/json.slint";
+
+// The document side of the workbench: what the user pasted, opened or typed.
+// The validation line belongs to the page, not to this card: it is a sentence,
+// and a sentence has no business deciding how wide a column is.
+export component JsonInput inherits Rectangle {
+    in property <bool> busy;
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.json; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.json-input; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            // The document's name gives way first: it is the only part of this
+            // row that may be any length.
+            Text {
+                text: JsonState.source == "" ? I18n.json-unsaved : JsonState.source;
+                font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide;
+                horizontal-stretch: 1; min-width: 0px;
+            }
+            Action { label: I18n.json-open; icon: Icons.folder; enabled: !root.busy; clicked => { JsonState.open(); } }
+            Action { label: I18n.json-sample; icon: Icons.file-import; enabled: !root.busy; clicked => { JsonState.sample(); } }
+            Action { label: I18n.json-clear; enabled: !root.busy && JsonState.input != ""; clicked => { JsonState.clear(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        TextEditor {
+            vertical-stretch: 1;
+            placeholder: I18n.json-placeholder;
+            text <=> JsonState.input;
+            edited => { JsonState.edited(); }
+        }
+    }
+}

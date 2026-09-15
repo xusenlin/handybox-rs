@@ -1,0 +1,13 @@
+{
+  "name": "HandyBox",
+  "version": "0.1.0",
+  "offline": true,
+  "tools": [
+    { "key": "documents", "engine": "anydoc", "ready": true },
+    { "key": "json", "engine": "jaq", "ready": true },
+    { "key": "crypto", "engine": "sha2 + age", "ready": false },
+    { "key": "diff", "engine": "similar", "ready": false }
+  ],
+  "languages": ["en", "zh-CN"],
+  "limits": { "documentBytes": 67108864, "jsonBytes": 4194304 }
+}

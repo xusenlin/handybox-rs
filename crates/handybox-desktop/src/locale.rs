@@ -1,7 +1,7 @@
 //! Runtime text is translated at display time, never frozen into worker events.
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
-    tools::documents::DocumentIssue,
+    tools::{documents::DocumentIssue, json::JsonIssue},
 };
 use std::path::PathBuf;
 
@@ -121,6 +121,7 @@ pub fn matches_tool(tool: &ToolDescriptor, query: &str) -> bool {
 #[derive(Clone, Debug)]
 pub enum FailureKind {
     Document(DocumentIssue),
+    Json(JsonIssue),
     Clipboard,
     Operation,
     Worker,
@@ -134,11 +135,26 @@ pub struct Failure {
 
 impl Failure {
     pub fn document(error: anyhow::Error) -> Self {
-        let kind = error
-            .downcast_ref::<DocumentIssue>()
-            .copied()
-            .map(FailureKind::Document)
-            .unwrap_or(FailureKind::Operation);
+        Self::new(
+            error
+                .downcast_ref::<DocumentIssue>()
+                .copied()
+                .map(FailureKind::Document),
+            error,
+        )
+    }
+
+    pub fn json(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<JsonIssue>()
+                .copied()
+                .map(FailureKind::Json),
+            error,
+        )
+    }
+
+    fn new(kind: Option<FailureKind>, error: anyhow::Error) -> Self {
         // Keep native/parser diagnostics separate from translated application copy.
         let detail = error
             .chain()
@@ -146,8 +162,26 @@ impl Failure {
             .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join(": ");
-        Self { kind, detail }
+        Self {
+            kind: kind.unwrap_or(FailureKind::Operation),
+            detail,
+        }
     }
+    /// Whether the failure is about the document the user is editing rather
+    /// than about the operation, and therefore belongs beside that document.
+    pub fn about_input(&self) -> bool {
+        matches!(
+            self.kind,
+            FailureKind::Json(
+                JsonIssue::Syntax { .. }
+                    | JsonIssue::Empty
+                    | JsonIssue::TooLarge
+                    | JsonIssue::NotText
+                    | JsonIssue::Multiple
+            )
+        )
+    }
+
     pub fn render(&self, lang: Language) -> String {
         let message = match self.kind {
             FailureKind::Document(issue) if !lang.chinese() => issue.to_string(),
@@ -171,6 +205,28 @@ impl Failure {
                 DocumentIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
+            FailureKind::Json(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Json(issue) => match issue {
+                JsonIssue::InputMissing => "找不到输入文件。".into(),
+                JsonIssue::Read => "无法读取文件，请检查访问权限。".into(),
+                JsonIssue::NotFile => "请选择文件，而不是文件夹。".into(),
+                JsonIssue::TooLarge => "JSON 超过 4 MiB，请选择更小的文档。".into(),
+                JsonIssue::Empty => "还没有可处理的 JSON。".into(),
+                JsonIssue::NotText => "该文件不是 UTF-8 文本。".into(),
+                JsonIssue::Multiple => {
+                    "这是 JSON 数据流，不是一份 JSON 文档：它包含多个顶层值。".into()
+                }
+                JsonIssue::Syntax { line, column } => {
+                    format!("第 {line} 行第 {column} 列的 JSON 无效。")
+                }
+                JsonIssue::Filter => "无法理解这个 jq 表达式。".into(),
+                JsonIssue::Query => "过滤器在处理该输入时中止。".into(),
+                JsonIssue::InvalidExtension => "导出文件必须使用 .json 扩展名。".into(),
+                JsonIssue::SourceOverwrite => "不能覆盖来源文档，请选择其他路径。".into(),
+                JsonIssue::CreateOutput => "无法在目标目录创建文件。".into(),
+                JsonIssue::WriteOutput => "写入 JSON 失败。".into(),
+                JsonIssue::SaveOutput => "无法保存到目标文件。".into(),
+            },
             FailureKind::Clipboard => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -206,11 +262,13 @@ pub enum Message {
     Converting,
     Copying,
     Saving,
+    Running,
     Copied,
     Saved(PathBuf),
     Cancelled,
     Complete,
     EmptyResult,
+    NoOutput,
     Error(Failure),
 }
 
@@ -221,7 +279,12 @@ impl Message {
     pub fn is_notice(&self) -> bool {
         matches!(
             self,
-            Self::Copied | Self::Saved(_) | Self::Cancelled | Self::EmptyResult | Self::Error(_)
+            Self::Copied
+                | Self::Saved(_)
+                | Self::Cancelled
+                | Self::EmptyResult
+                | Self::NoOutput
+                | Self::Error(_)
         )
     }
 
@@ -237,15 +300,10 @@ impl Message {
             ),
             Self::Reading => lang.text("Reading your document…", "正在读取文档…"),
             Self::Converting => lang.text("Converting locally…", "正在本地转换…"),
-            Self::Copying => lang.text("Copying Markdown…", "正在复制 Markdown…"),
-            Self::Saving => lang.text(
-                "Choose where to save your Markdown…",
-                "请选择 Markdown 的保存位置…",
-            ),
-            Self::Copied => lang.text(
-                "Markdown copied to your clipboard.",
-                "Markdown 已复制到剪贴板。",
-            ),
+            Self::Copying => lang.text("Copying to the clipboard…", "正在复制到剪贴板…"),
+            Self::Running => lang.text("Running your filter locally…", "正在本地运行表达式…"),
+            Self::Saving => lang.text("Choose where to save your file…", "请选择文件的保存位置…"),
+            Self::Copied => lang.text("Copied to your clipboard.", "已复制到剪贴板。"),
             Self::Cancelled => lang.text(
                 "Operation cancelled. Your current result is unchanged.",
                 "操作已取消，当前结果保持不变。",
@@ -253,6 +311,10 @@ impl Message {
             Self::Complete => lang.text(
                 "Conversion complete. Your Markdown is ready.",
                 "转换完成，Markdown 已就绪。",
+            ),
+            Self::NoOutput => lang.text(
+                "The filter ran, but produced no output for this document.",
+                "表达式已运行，但没有为该文档产生任何输出。",
             ),
             Self::EmptyResult => lang.text(
                 "Conversion finished, but no text was found in this document.",
@@ -295,5 +357,35 @@ mod tests {
         let error = Failure::document(anyhow::anyhow!(DocumentIssue::NeedsOcr));
         assert!(error.render(Language::Chinese).contains("扫描"));
         assert!(error.render(Language::English).contains("OCR"));
+    }
+
+    #[test]
+    fn json_failures_keep_their_position_and_their_technical_detail() {
+        let issue = JsonIssue::Syntax {
+            line: 3,
+            column: 12,
+        };
+        let error = Failure::json(anyhow::anyhow!("trailing comma").context(issue));
+        assert!(error.about_input());
+        let english = error.render(Language::English);
+        assert!(english.contains("line 3, column 12"));
+        assert!(english.contains("trailing comma"), "{english}");
+        let chinese = error.render(Language::Chinese);
+        assert!(chinese.contains("第 3 行第 12 列"));
+        assert!(chinese.contains("trailing comma"));
+        // A filter is about the expression, not about the document beside it.
+        let filter = Failure::json(anyhow::anyhow!("expected token").context(JsonIssue::Filter));
+        assert!(!filter.about_input());
+        assert!(filter.render(Language::Chinese).contains("jq"));
+        // What the strict switch reports, and where it reports it.
+        let stream =
+            Failure::json(anyhow::anyhow!("2 top-level values").context(JsonIssue::Multiple));
+        assert!(stream.about_input());
+        assert!(
+            stream
+                .render(Language::English)
+                .contains("more than one top-level value")
+        );
+        assert!(stream.render(Language::Chinese).contains("多个顶层值"));
     }
 }

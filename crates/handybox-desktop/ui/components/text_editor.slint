@@ -1,0 +1,43 @@
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+
+// Editable source. Unlike CodeView this is a single TextInput holding the whole
+// document, because editing needs one cursor and one selection: the cost is that
+// the text is shaped as a whole, which is why the core caps what may be loaded.
+export component TextEditor inherits Rectangle {
+    in property <string> placeholder;
+    in property <bool> enabled: true;
+    in-out property <string> text <=> input.text;
+    callback edited(string);
+    background: Theme.surface;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.accent : Theme.border;
+    clip: true;
+    forward-focus: input;
+    view := ScrollView {
+        x: 10px; y: 9px;
+        width: parent.width - 20px; height: parent.height - 18px;
+        viewport-width: self.visible-width;
+        viewport-height: max(self.visible-height, input.preferred-height);
+        input := TextInput {
+            single-line: false;
+            wrap: word-wrap;
+            enabled: root.enabled;
+            color: Theme.ink;
+            font-family: Theme.mono-family;
+            font-size: 13px;
+            page-height: view.visible-height;
+            accessible-label: root.placeholder;
+            edited => { root.edited(self.text); }
+        }
+    }
+    // Left-aligned inside the scroll area: a child of a Rectangle would be
+    // centred, and the hint has to start where the caret does.
+    if root.text == "": Text {
+        x: 10px; y: 9px; width: parent.width - 20px;
+        text: root.placeholder;
+        color: Theme.muted; font-family: Theme.mono-family; font-size: 13px;
+        wrap: word-wrap;
+    }
+}
