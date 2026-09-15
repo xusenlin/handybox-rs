@@ -1,0 +1,45 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { TextEditor } from "text_editor.slint";
+
+// One side of a comparison: a titled card holding whatever was typed, pasted or
+// opened. Both sides are the same card with different bindings, so it takes its
+// text and its actions from the page rather than reaching into a global.
+export component DiffInput inherits Rectangle {
+    in property <string> title;
+    in property <string> source;
+    in property <string> placeholder;
+    in property <bool> busy;
+    in-out property <string> text;
+    callback open();
+    callback clear();
+    callback edited();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 16px; spacing: 12px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.document; ink: Theme.accent; width: 18px; }
+            Text { text: root.title; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            // The document's name gives way first: it is the only part of this
+            // row that may be any length.
+            Text {
+                text: root.source == "" ? I18n.diff-unsaved : root.source;
+                font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide;
+                horizontal-stretch: 1; min-width: 0px;
+            }
+            Action { label: I18n.diff-open; icon: Icons.folder; enabled: !root.busy; clicked => { root.open(); } }
+            Action { label: I18n.diff-clear; enabled: !root.busy && root.text != ""; clicked => { root.clear(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        TextEditor {
+            vertical-stretch: 1;
+            placeholder: root.placeholder;
+            text <=> root.text;
+            edited => { root.edited(); }
+        }
+    }
+}

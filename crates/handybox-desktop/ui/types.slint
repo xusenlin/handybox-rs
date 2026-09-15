@@ -6,3 +6,14 @@ export struct ToolItem {
     capabilities: string,
     available: bool,
 }
+
+// One row of a comparison. `kind` is 0 unchanged, 1 added, 2 removed, 3 a gap
+// standing in for unchanged lines that were left out. The line numbers are
+// strings because a row only has one on the side it belongs to, and an empty
+// gutter is what a missing number looks like.
+export struct DiffRow {
+    kind: int,
+    old-line: string,
+    new-line: string,
+    text: string,
+}

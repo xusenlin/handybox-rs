@@ -57,7 +57,7 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "See exactly what changed between two versions.",
         libraries: "similar",
         capabilities: "Compare text and files side by side\nLine differences and change summaries\nExport unified diffs",
-        available: false,
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Images,

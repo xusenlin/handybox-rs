@@ -1,0 +1,42 @@
+import { DiffRow } from "../types.slint";
+
+// Everything the text diff tool owns. The two sides are symmetric, so every
+// property belonging to a side exists twice rather than being indexed: each
+// editor binds to its own, and nothing has to ask which side it is.
+//
+// The comparison is live. There is no Compare button because there is nothing
+// to ask for: an edit, an opened file or a changed option re-runs it on its own
+// clock, the way the workbench validates what is in its editor.
+export global DiffState {
+    // In-out: the editors write them as the user types, and Rust writes them
+    // when a file is opened, the sides are swapped, or a side is cleared.
+    in-out property <string> left;
+    in-out property <string> right;
+    in property <string> left-source;
+    in property <string> right-source;
+    /// Relax the comparison: lines that differ only in spacing count as equal.
+    in-out property <bool> ignore-whitespace;
+    /// Leave out the untouched runs, keeping three lines around every change.
+    in-out property <bool> changes-only;
+    in property <[DiffRow]> rows;
+    in property <string> stats;
+    in property <bool> has-result;
+    /// Whether anything actually differs. A comparison that found no change is
+    /// still a result worth showing, but there is no diff to copy or export.
+    in property <bool> has-changes;
+    in property <bool> comparing;
+    in property <string> status;
+    // 0 neutral, 1 identical, 2 needs attention.
+    in property <int> status-tone;
+    callback open-left();
+    callback open-right();
+    callback clear-left();
+    callback clear-right();
+    callback swap();
+    callback edited();
+    /// An option changes what the same two texts mean, so it re-compares at once
+    /// instead of waiting out the typing pause.
+    callback options-changed();
+    callback copy();
+    callback save();
+}

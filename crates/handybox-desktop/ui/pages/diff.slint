@@ -1,0 +1,87 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { DiffInput } from "../components/diff_input.slint";
+import { DiffPanel } from "../components/diff_panel.slint";
+import { Toggle } from "../components/toggle.slint";
+import { Action } from "../components/action.slint";
+import { Icons } from "../icons.slint";
+import { DiffState } from "../state/diff.slint";
+
+export component DiffPage inherits VerticalLayout {
+    in property <bool> busy;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.diff-title; description: I18n.diff-description; badge: I18n.diff-badge; }
+    // What the comparison counts as a change, and which way round it reads.
+    // There is no Compare button: the result follows the two texts.
+    HorizontalLayout {
+        spacing: 18px;
+        Toggle {
+            label: I18n.diff-ignore-whitespace;
+            checked <=> DiffState.ignore-whitespace;
+            toggled => { DiffState.options-changed(); }
+        }
+        Toggle {
+            label: I18n.diff-changes-only;
+            checked <=> DiffState.changes-only;
+            toggled => { DiffState.options-changed(); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        Action { label: I18n.diff-swap; icon: Icons.arrow-right; enabled: !root.busy; clicked => { DiffState.swap(); } }
+    }
+    // The two sides split the row in half and stay there. Each sits in a plain
+    // Rectangle and sizes itself to it: a layout hands out width by its
+    // children's *preferred* sizes, so the side holding the longer line would
+    // otherwise keep growing and push the other side's buttons off the window.
+    HorizontalLayout {
+        spacing: 16px; vertical-stretch: 1; min-height: 150px;
+        Rectangle {
+            horizontal-stretch: 1;
+            DiffInput {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                title: I18n.diff-left;
+                placeholder: I18n.diff-left-placeholder;
+                source: DiffState.left-source;
+                text <=> DiffState.left;
+                busy: root.busy;
+                open => { DiffState.open-left(); }
+                clear => { DiffState.clear-left(); }
+                edited => { DiffState.edited(); }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            DiffInput {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                title: I18n.diff-right;
+                placeholder: I18n.diff-right-placeholder;
+                source: DiffState.right-source;
+                text <=> DiffState.right;
+                busy: root.busy;
+                open => { DiffState.open-right(); }
+                clear => { DiffState.clear-right(); }
+                edited => { DiffState.edited(); }
+            }
+        }
+    }
+    DiffPanel {
+        vertical-stretch: 1; min-height: 190px;
+        rows: DiffState.rows;
+        caption: DiffState.comparing ? I18n.diff-comparing : I18n.diff-result-caption;
+        stats: DiffState.stats;
+        has-result: DiffState.has-result;
+        has-changes: DiffState.has-changes;
+        busy: root.busy;
+        copy => { DiffState.copy(); }
+        save => { DiffState.save(); }
+    }
+    // The verdict runs the full width under the panel. A sentence of any length
+    // can only wrap here; it can never take width from a card.
+    Text {
+        text: DiffState.status;
+        color: DiffState.status-tone == 2 ? Theme.error : DiffState.status-tone == 1 ? Theme.success : Theme.muted;
+        font-size: 11px; font-weight: DiffState.status-tone == 0 ? 400 : 600;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.diff-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

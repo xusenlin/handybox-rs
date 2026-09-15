@@ -1,7 +1,7 @@
 //! Runtime text is translated at display time, never frozen into worker events.
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
-    tools::{crypto::CryptoIssue, documents::DocumentIssue, json::JsonIssue},
+    tools::{crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue, json::JsonIssue},
 };
 use std::path::PathBuf;
 
@@ -123,6 +123,7 @@ pub enum FailureKind {
     Document(DocumentIssue),
     Json(JsonIssue),
     Crypto(CryptoIssue),
+    Diff(DiffIssue),
     Clipboard,
     Operation,
     Worker,
@@ -165,6 +166,16 @@ impl Failure {
         )
     }
 
+    pub fn diff(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<DiffIssue>()
+                .copied()
+                .map(FailureKind::Diff),
+            error,
+        )
+    }
+
     fn new(kind: Option<FailureKind>, error: anyhow::Error) -> Self {
         // Keep native/parser diagnostics separate from translated application copy.
         let detail = error
@@ -189,7 +200,7 @@ impl Failure {
                     | JsonIssue::TooLarge
                     | JsonIssue::NotText
                     | JsonIssue::Multiple
-            )
+            ) | FailureKind::Diff(DiffIssue::Empty | DiffIssue::TooLarge | DiffIssue::NotText)
         )
     }
 
@@ -262,6 +273,21 @@ impl Failure {
                 CryptoIssue::CreateOutput => "无法在目标目录创建文件。",
                 CryptoIssue::WriteOutput => "写入文件失败。",
                 CryptoIssue::SaveOutput => "无法保存到目标文件。",
+            }
+            .into(),
+            FailureKind::Diff(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Diff(issue) => match issue {
+                DiffIssue::InputMissing => "找不到输入文件。",
+                DiffIssue::Read => "无法读取文件，请检查访问权限。",
+                DiffIssue::NotFile => "请选择文件，而不是文件夹。",
+                DiffIssue::TooLarge => "每一侧最多 2 MiB，请选择更小的文本。",
+                DiffIssue::Empty => "还没有可对比的内容。",
+                DiffIssue::NotText => "该文件不是 UTF-8 文本。",
+                DiffIssue::InvalidExtension => "导出文件必须使用 .diff 或 .patch 扩展名。",
+                DiffIssue::SourceOverwrite => "不能覆盖参与对比的文件，请选择其他路径。",
+                DiffIssue::CreateOutput => "无法在目标目录创建文件。",
+                DiffIssue::WriteOutput => "写入差异失败。",
+                DiffIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
             FailureKind::Clipboard => lang
@@ -454,5 +480,28 @@ mod tests {
             Failure::crypto(anyhow::anyhow!("invalid bech32").context(CryptoIssue::Identity));
         assert!(detail.render(Language::English).contains("invalid bech32"));
         assert!(detail.render(Language::Chinese).contains("invalid bech32"));
+    }
+
+    #[test]
+    fn diff_failures_separate_the_texts_from_the_operation() {
+        // Nothing to compare is a state of the two editors, so it belongs on
+        // the line under them rather than in a toast that has to be dismissed.
+        let empty = Failure::diff(anyhow::anyhow!(DiffIssue::Empty));
+        assert!(empty.about_input());
+        assert!(
+            empty
+                .render(Language::English)
+                .contains("nothing to compare")
+        );
+        assert!(empty.render(Language::Chinese).contains("可对比"));
+        // Saving is an operation: where it failed is not a property of a text.
+        let overwrite = Failure::diff(anyhow::anyhow!(DiffIssue::SourceOverwrite));
+        assert!(!overwrite.about_input());
+        assert!(overwrite.render(Language::Chinese).contains("覆盖"));
+        assert!(
+            Failure::diff(anyhow::anyhow!(DiffIssue::TooLarge))
+                .render(Language::English)
+                .contains("2 MiB")
+        );
     }
 }

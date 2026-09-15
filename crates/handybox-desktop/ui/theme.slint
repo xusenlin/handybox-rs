@@ -12,6 +12,12 @@ export global Theme {
     out property <color> cream: #faf7e8;
     out property <color> success: #3f806b;
     out property <color> error: #aa3737;
+    // Backgrounds for a changed line. Pale enough that monospace text on top of
+    // them keeps its contrast, and distinguishable by lightness as well as hue,
+    // because the marker column is what carries the meaning for anyone who
+    // cannot tell the two apart by colour.
+    out property <color> added: #e7f3ec;
+    out property <color> removed: #fbeaea;
     out property <length> radius: 12px;
     out property <length> gap: 16px;
     out property <length> page-padding: 30px;

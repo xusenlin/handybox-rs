@@ -1,6 +1,7 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
 pub mod crypto;
+pub mod diff;
 pub mod documents;
 pub mod json;
 
@@ -166,17 +167,22 @@ fn apply_language(ui: &AppWindow, language: Language) {
 
 /// Hand a file to the tool that handles it. The extension is all there is to go
 /// on before reading it, and it is enough to tell these apart — except for the
-/// crypto tool, which takes any file at all: while its page is the one showing,
-/// a dropped file is its input rather than something to route away.
+/// two tools that take any file at all: the crypto tool, and the diff tool,
+/// whose input is whatever text you put beside another text. While one of their
+/// pages is showing, a dropped file is its input rather than something to route
+/// away.
 fn open(
     shell: &Shell,
     documents: &documents::Controller,
     json: &json::Controller,
     crypto: &crypto::Controller,
+    diff: &diff::Controller,
     path: PathBuf,
 ) {
     if shell.showing("crypto") {
         crypto.open(shell, path, None);
+    } else if shell.showing("diff") {
+        diff.open(shell, path);
     } else if core_crypto::claims(&path) {
         crypto.open(shell, path, Some(crypto::Mode::Decrypt));
     } else if core_json::claims(&path) {
@@ -191,8 +197,10 @@ pub fn kib(bytes: usize) -> String {
     format!("{:.1} KiB", bytes as f64 / 1024.0)
 }
 
-/// Retain the returned timer for as long as the window is alive.
-pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Timer> {
+/// Retain the returned timer for as long as the window is alive. `initial` is
+/// what the command line named: one file opens in the tool that handles it, two
+/// are a comparison.
+pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
     let worker = Worker::start()?;
     let shell = Shell {
         ui: ui.as_weak(),
@@ -205,6 +213,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     let documents = documents::Controller::new(ui);
     let json = json::Controller::new(ui);
     let crypto = crypto::Controller::new(ui);
+    let diff = diff::Controller::new(ui);
 
     ui.set_repository(link::REPOSITORY.into());
     apply_language(ui, shell.language());
@@ -214,9 +223,11 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     documents.bind(&shell);
     json.bind(&shell);
     crypto.bind(&shell);
+    diff.bind(&shell);
     documents.refresh(shell.language());
     json.refresh(shell.language());
     crypto.refresh(shell.language());
+    diff.refresh(shell.language());
 
     let bound = shell.clone();
     ui.on_navigate(move |key| bound.navigate(&key));
@@ -228,8 +239,12 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
     let bound = shell.clone();
     // Only presentation metadata is refreshed. Documents, results, selection,
     // route and jobs in flight are untouched when the language changes.
-    let (relabel_documents, relabel_json, relabel_crypto) =
-        (documents.clone(), json.clone(), crypto.clone());
+    let (relabel_documents, relabel_json, relabel_crypto, relabel_diff) = (
+        documents.clone(),
+        json.clone(),
+        crypto.clone(),
+        diff.clone(),
+    );
     ui.on_language_selected(move |chinese| {
         let Some(ui) = bound.ui.upgrade() else { return };
         {
@@ -246,6 +261,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
         relabel_documents.refresh(bound.language());
         relabel_json.refresh(bound.language());
         relabel_crypto.refresh(bound.language());
+        relabel_diff.refresh(bound.language());
     });
     let bound = shell.clone();
     // The toast expires on its own; clearing the message keeps a later refresh
@@ -271,11 +287,12 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
 
     // A file dropped anywhere in the window opens in the tool that handles it,
     // whichever page is showing, so the route follows the file.
-    let (bound, dropped_documents, dropped_json, dropped_crypto, weak) = (
+    let (bound, dropped_documents, dropped_json, dropped_crypto, dropped_diff, weak) = (
         shell.clone(),
         documents.clone(),
         json.clone(),
         crypto.clone(),
+        diff.clone(),
         ui.as_weak(),
     );
     ui.window().on_winit_window_event(move |_, event| {
@@ -293,6 +310,7 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
                         &dropped_documents,
                         &dropped_json,
                         &dropped_crypto,
+                        &dropped_diff,
                         path.clone(),
                     );
                 }
@@ -302,8 +320,10 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
         EventResult::Propagate
     });
 
-    if let Some(path) = initial_file {
-        open(&shell, &documents, &json, &crypto, path);
+    match initial.as_slice() {
+        [file] => open(&shell, &documents, &json, &crypto, &diff, file.clone()),
+        [left, right] => diff.open_pair(&shell, left.clone(), right.clone()),
+        _ => {}
     }
     let weak = ui.as_weak();
     let timer = Timer::default();
@@ -316,11 +336,14 @@ pub fn bind(ui: &AppWindow, initial_file: Option<PathBuf>) -> anyhow::Result<Tim
                 Event::Documents(event) => documents.handle(&shell, event),
                 Event::Json(event) => json.handle(&shell, event),
                 Event::Crypto(event) => crypto.handle(&shell, event),
+                Event::Diff(event) => diff.handle(&shell, event),
                 Event::Finished(outcome) => shell.finish(outcome),
             }
         }
-        // Editing is not an operation: the workbench validates on its own clock.
+        // Editing is not an operation: the workbench validates and the diff
+        // tool compares on their own clock.
         json.tick(&shell);
+        diff.tick(&shell);
     });
     Ok(timer)
 }

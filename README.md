@@ -6,7 +6,7 @@ English | [简体中文](README.zh-CN.md)
 
 A fast, offline-first desktop utility toolbox built with Rust and Slint.
 
-HandyBox brings everyday utilities into a single native desktop workspace. This version ships an **English / Simplified Chinese UI**, a working **document-to-Markdown converter**, a working **JSON workbench** with jq-style queries, a working **Hash & encrypt** tool built on sha2 and age, and navigable, descriptive placeholders for the next six tools. No account, API key, server, WebView, or document upload is required.
+HandyBox brings everyday utilities into a single native desktop workspace. This version ships an **English / Simplified Chinese UI**, a working **document-to-Markdown converter**, a working **JSON workbench** with jq-style queries, a working **Hash & encrypt** tool built on sha2 and age, a working **Text diff** built on similar, and navigable, descriptive placeholders for the next five tools. No account, API key, server, WebView, or document upload is required.
 
 Use **English / 中文** at the bottom of the sidebar to switch languages immediately. The current tool, search query and converted document are retained. Tool search accepts either language and engine names. English is the default; the selection is saved locally for the next launch.
 
@@ -20,6 +20,9 @@ cargo run --locked
 # Open a document immediately
 cargo run --locked -- examples/sample.rtf
 
+# Two paths are a comparison: they open side by side in Text diff
+cargo run --locked -- old.txt new.txt
+
 # Force the CPU renderer for compatibility testing
 SLINT_BACKEND=winit-software cargo run --locked
 
@@ -27,7 +30,7 @@ SLINT_BACKEND=winit-software cargo run --locked
 cargo build --release --locked
 ```
 
-The repository pins **Rust 1.88.0**, **Slint 1.13.1**, **anydoc 0.2.4**, the **jaq 3** crates and **age 0.12**; commit `Cargo.lock` with dependency updates. Rustup installs the pinned toolchain if needed. Initial dependency downloads require a connection; the built application processes documents entirely locally.
+The repository pins **Rust 1.88.0**, **Slint 1.13.1**, **anydoc 0.2.4**, the **jaq 3** crates, **age 0.12** and **similar 3**; commit `Cargo.lock` with dependency updates. Rustup installs the pinned toolchain if needed. Initial dependency downloads require a connection; the built application processes documents entirely locally.
 
 On macOS, install Xcode Command Line Tools. On Windows, use the MSVC Rust toolchain and Visual Studio C++ Build Tools. On Debian/Ubuntu, install desktop build dependencies:
 
@@ -81,7 +84,7 @@ The artifacts carry an ad-hoc signature at most: there is no Developer ID signin
 | Document converter | `anydoc` | Implemented: choose/drop a file, convert, inspect Markdown source, copy all, export `.md` |
 | JSON workbench | `jaq` | Implemented: validate, format, minify, query with jq syntax, copy and export `.json` |
 | Hash & encrypt | `sha2` + `age` | Implemented: SHA-256/SHA-512 checksums and verification, age encryption and decryption by passphrase or key |
-| Text diff | `similar` | Placeholder: text/file comparison and unified diffs |
+| Text diff | `similar` | Implemented: live line-by-line comparison of two texts or files, change summary, copy and export a unified diff |
 | Image studio | `image` + `fast_image_resize` + `oxipng` + `nom-exif` | Placeholder: convert, resize, optimize PNG and inspect metadata |
 | Archives | `zip` + `sevenz-rust2` | Placeholder: archive preview, creation and extraction |
 | Barcode reader | `rxing` | Placeholder: decode QR codes and barcodes from images |
@@ -153,6 +156,26 @@ Behavior and current limits:
 - Recipients and keys are parsed before anything is read or written, so a typo costs nothing but the message.
 - Secrets live only in the page's fields and the worker command. Nothing is written to disk except the file you chose a destination for.
 
+## Text diff
+
+1. Paste or type into **Original** and **Changed**, choose **Open** on either side, or drop a file onto the window while this page is showing — it fills the empty side, and the changed side once both are taken.
+2. The comparison runs on its own, shortly after you stop typing. There is no Compare button, because there is nothing to ask for.
+3. Read the result line by line: each row carries its line number on the side it belongs to, a `+` or `-` marker and a tinted background.
+4. **Copy diff** and **Export .diff** produce a standard unified diff with three lines of context.
+
+Two switches decide what counts as a change, and both re-run the comparison immediately. **Ignore whitespace** treats lines that differ only in spacing as the same line — indentation and trailing spaces are rarely the change anyone is looking for. **Only changes** leaves out the untouched runs, replacing each with a row saying how many lines were skipped. **Swap sides** reads the same comparison the other way round, and takes each side's file with it.
+
+The summary under the panel counts lines added and removed, the number of separate changes, and how similar the two sides are. When nothing differs it says so in green, and there is no diff to copy or export.
+
+Behavior and current limits:
+
+- **Up to 2 MiB per side.** Each side is an editor holding one text item, so the cap is a rendering budget as much as a comparison one. Files are read with the same bound, and non-UTF-8 files are refused.
+- The comparison is **line-based**. Line endings are dropped before comparing, so the same content written on Windows and on Unix is identical rather than every line changed. Differences *within* a line are not highlighted: Slint 1.13 has no rich text, so there is nowhere to put the highlight.
+- Myers' algorithm is quadratic in the worst case, so it stops refining after **5 seconds** and says so; the answer is still a correct diff, just not the smallest one. The panel shows at most **20,000 rows**, and copy and export always use the complete result.
+- The two sides are compared as they are on screen, not as they are on disk: editing after opening a file compares what you edited. The file behind a side is remembered only to name it in the diff header, to suggest an export name, and to refuse to overwrite it.
+- Export writes through a temporary file and an atomic persist, requires a `.diff` or `.patch` extension, and refuses to replace either file being compared. The native dialog owns overwrite confirmation.
+- Both texts stay in memory while switching tools. Nothing is written to disk unless you export.
+
 ## Architecture
 
 The workspace separates native UI concerns from reusable tool operations:
@@ -164,13 +187,15 @@ crates/
     src/tools/documents.rs      # Validation, anydoc adapter, result, export
     src/tools/json.rs           # Parsing, formatting, jaq adapter, bounded runs
     src/tools/crypto.rs         # Streaming digests, age encryption and decryption
+    src/tools/diff.rs           # Line comparison, diff rows and unified output
     tests/catalog.rs            # Stable routes and implementation status
     tests/documents.rs          # Conversion and file-safety integration tests
     tests/json.rs               # Formatting, queries, limits and export safety
     tests/crypto.rs             # Digests, verification and age round trips
+    tests/diff.rs               # Rows, options, unified output and export safety
   handybox-desktop/
     build.rs                    # Compiles the Slint component tree
-    src/main.rs                 # Startup, monospace font, optional initial document
+    src/main.rs                 # Startup, monospace font, optional initial paths
     src/macos.rs                # macOS Dock icon and light title bar
     src/locale.rs               # Tool translations, typed messages, UI font per language
     src/settings.rs             # Atomic, local language preference
@@ -179,10 +204,12 @@ crates/
     src/controllers/documents.rs# Converter state, callbacks and events
     src/controllers/json.rs     # Workbench state, validation clock and events
     src/controllers/crypto.rs   # Source file, the three operations and their report
+    src/controllers/diff.rs     # Two sides, their files and the comparison clock
     src/worker/mod.rs           # Bounded background command/event bridge
     src/worker/documents.rs     # Pickers, conversion and Markdown export
     src/worker/json.rs          # Validation, jq runs, file open and export
     src/worker/crypto.rs        # Pickers, digests, age encryption and decryption
+    src/worker/diff.rs          # Pickers, comparisons and unified-diff export
     ui/app.slint                # Shell only: sidebar + active page + status
     ui/theme.slint              # Shared palette, fonts, spacing, radius
     ui/icons.slint              # Embedded SVG asset catalog
@@ -192,10 +219,12 @@ crates/
     ui/state/documents.slint    # Converter properties and callbacks
     ui/state/json.slint         # Workbench properties and callbacks
     ui/state/crypto.slint       # Hash & encrypt properties and callbacks
+    ui/state/diff.slint         # Text diff properties and callbacks
     ui/components/              # Reusable visual building blocks
     ui/pages/documents.slint    # Composes the converter page
     ui/pages/json.slint         # Composes the workbench page
     ui/pages/crypto.slint       # Composes the hash & encrypt page
+    ui/pages/diff.slint         # Composes the text diff page
     ui/pages/placeholder.slint  # Metadata-driven planned-tool page
 assets/app-icon.png              # Rounded icon: sidebar and window
 assets/macos-icon.png            # Icon on Apple's grid: Dock and .icns
@@ -215,7 +244,7 @@ Slint components → callbacks → controller → bounded command channel
 Slint properties ← controller ← 50 ms event pump ← result channel
 ```
 
-**Core:** public operations use Rust inputs/results and know nothing about windows. The catalog gives every tool a stable enum ID and string route; navigation does not depend on menu indexes. Engines are adapters inside `tools/`, so a future CLI or tests can reuse them. Each tool exposes its own stable issue enum (`DocumentIssue`, `JsonIssue`) instead of error strings the desktop would have to match on.
+**Core:** public operations use Rust inputs/results and know nothing about windows. The catalog gives every tool a stable enum ID and string route; navigation does not depend on menu indexes. Engines are adapters inside `tools/`, so a future CLI or tests can reuse them. Each tool exposes its own stable issue enum (`DocumentIssue`, `JsonIssue`, `CryptoIssue`, `DiffIssue`) instead of error strings the desktop would have to match on.
 
 **Desktop controllers:** `controllers/mod.rs` is the shell. It translates catalog entries into Slint models, filters navigation case-insensitively by tool name or engine, owns the language and the single notice surface, and pumps worker events to whichever tool they belong to. A tool controller owns its own retained state, registers its own callbacks and re-renders its own text on a language change; it reaches the shell only through `submit`, `dispatch`, `finish` and `notify`. Weak component handles avoid UI ownership cycles. Only the main thread touches Slint properties.
 
@@ -225,7 +254,7 @@ Slint properties ← controller ← 50 ms event pump ← result channel
 
 Outcomes appear as a `Toast`: a floating, self-expiring notice near the bottom of the window. It is a sibling of the layout rather than a row inside it, so showing and hiding it can never reflow the page or take height from the result panel. It is never created or destroyed either, which lets it fade both in and out; a replacement notice restarts the countdown instead of inheriting it. Errors linger longer than confirmations, and a click dismisses either. `StatusBar` is deliberately static: it is shared by every tool, so a transient message there would have to be cleared on navigation.
 
-**UI composition:** pages bind to their tool's state global and emit its callbacks; they do not perform file I/O or reference engine APIs. Shell-wide properties (`busy`, `dragging`) still flow down from `app.slint`, which only composes the shell and routes. A global per tool keeps the window's own surface to what every tool shares, instead of growing a property per field. `Sidebar` composes `NavItem` and `TextField`; `DocumentsPage` composes `PageHeader`, `FileCard`, format `Badge`s and `SourcePanel`; `JsonPage` composes `PageHeader`, `TextField`, `JsonInput`, the same `SourcePanel`, and a validation row of its own with a `Toggle`; `SourcePanel` composes `Action`, `CodeView` and `EmptyState`, and `JsonInput` composes `TextEditor`. The workbench's two cards each sit in a plain `Rectangle` and size themselves to it: a layout distributes width by its children's preferred sizes, so a card holding a sentence would keep growing at its neighbour's expense. That is also why the validation line is a row of the page rather than part of a card. `CodeView` puts the lines in a `ListView`: a `for` directly inside one compiles to a virtualized repeater, which is the only reason a large document stays responsive — a single `Text` holding it all froze the window for about ten seconds on a 26k-character Chinese document, because FemtoVG shapes the whole string to measure it and its 1000-entry shaped-word cache thrashes on text without word breaks. `TextEditor` is the exception: editing needs one cursor and one selection, so the workbench's input is a single `TextInput`, and the 4 MiB cap on JSON is what keeps that affordable. `StatusBar` is shared across tools. A visual change belongs in the smallest relevant component, with shared tokens in `Theme`.
+**UI composition:** pages bind to their tool's state global and emit its callbacks; they do not perform file I/O or reference engine APIs. Shell-wide properties (`busy`, `dragging`) still flow down from `app.slint`, which only composes the shell and routes. A global per tool keeps the window's own surface to what every tool shares, instead of growing a property per field. `Sidebar` composes `NavItem` and `TextField`; `DocumentsPage` composes `PageHeader`, `FileCard`, format `Badge`s and `SourcePanel`; `JsonPage` composes `PageHeader`, `TextField`, `JsonInput`, the same `SourcePanel`, and a validation row of its own with a `Toggle`; `SourcePanel` composes `Action`, `CodeView` and `EmptyState`, and `JsonInput` composes `TextEditor`; `DiffPage` composes `PageHeader`, two `Toggle`s, an `Action`, two `DiffInput`s and a `DiffPanel`, which is a result card of its own because a diff row is a gutter, a marker and a line rather than a string. The workbench's two cards, and the diff tool's two sides, each sit in a plain `Rectangle` and size themselves to it: a layout distributes width by its children's preferred sizes, so a card holding a sentence would keep growing at its neighbour's expense. That is also why the validation line is a row of the page rather than part of a card. `CodeView` and `DiffPanel` put their lines in a `ListView`: a `for` directly inside one compiles to a virtualized repeater, which is the only reason a large document stays responsive — a single `Text` holding it all froze the window for about ten seconds on a 26k-character Chinese document, because FemtoVG shapes the whole string to measure it and its 1000-entry shaped-word cache thrashes on text without word breaks. `TextEditor` is the exception: editing needs one cursor and one selection, so the workbench's input and each side of a comparison are a single `TextInput`, and the 4 MiB and 2 MiB caps are what keep that affordable. `StatusBar` is shared across tools. A visual change belongs in the smallest relevant component, with shared tokens in `Theme`.
 
 The workspace deliberately uses a small typed command/event bridge rather than a dynamic plugin ABI or a generic JSON dispatcher: a new tool adds variants the compiler checks, not a registry it trusts.
 
@@ -250,7 +279,7 @@ To add an icon, put an SVG in `ui/assets/icons/`, register it in `ui/icons.slint
 
 ### Localization
 
-`SettingsMenu` is a reusable sidebar component: a gear button beside the wordmark that opens a `PopupWindow` with the two languages. A row of language buttons cost a whole line of sidebar height for a setting that is changed rarely. The labels stay self-named (`English`, `中文`) so they are recognizable whichever locale is active. `ui/i18n.slint` centralizes static component text, with reactive bindings to `I18n.chinese`. Rust's `locale.rs` owns translated catalog metadata, status messages and application error descriptions. Core errors expose stable `DocumentIssue` and `JsonIssue` categories; translation never relies on matching English error strings. A category may carry data — a JSON syntax error carries its line and column — so the position survives a language change too. Worker events carry typed messages/results and are translated using the current language when displayed, including after switching during a conversion. File paths, engine names and document content are never translated.
+`SettingsMenu` is a reusable sidebar component: a gear button beside the wordmark that opens a `PopupWindow` with the two languages. A row of language buttons cost a whole line of sidebar height for a setting that is changed rarely. The labels stay self-named (`English`, `中文`) so they are recognizable whichever locale is active. `ui/i18n.slint` centralizes static component text, with reactive bindings to `I18n.chinese`. Rust's `locale.rs` owns translated catalog metadata, status messages and application error descriptions. Core errors expose stable `DocumentIssue`, `JsonIssue`, `CryptoIssue` and `DiffIssue` categories; translation never relies on matching English error strings. A category may carry data — a JSON syntax error carries its line and column — so the position survives a language change too. Worker events carry typed messages/results and are translated using the current language when displayed, including after switching during a conversion. File paths, engine names and document content are never translated.
 
 The proportional UI font follows the selected language (`Language::font_family`): PingFang SC, Microsoft YaHei or Noto Sans CJK SC for Chinese, and the previous Latin families for English. This is a performance requirement, not only a typographic one. When the primary font lacks a single glyph, the FemtoVG renderer re-queries the system fallback list for that text item on every layout and every frame — measured at ~0.6 ms per item on macOS, plus a large one-time cost to load a CJK face and rasterize its glyphs into the atlas. UI copy must therefore stay within its font's coverage; `DOCUMENT TO MARKDOWN` avoids `→`, which Helvetica Neue does not provide.
 
@@ -288,8 +317,8 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-Integration tests cover CSV Unicode/table output, content-detected RTF, a real DOCX ZIP container, invalid/empty/missing/oversized input, full-result export, source-overwrite protection, symlink protection on Unix, confirmed destination replacement, Unicode-safe preview truncation and catalog consistency. The JSON tests cover formatting and minification, jq filters over the standard library, oversized integers, JSON streams, syntax positions, the three error categories, the output bound, `halt`, document summaries and export safety.
+Integration tests cover CSV Unicode/table output, content-detected RTF, a real DOCX ZIP container, invalid/empty/missing/oversized input, full-result export, source-overwrite protection, symlink protection on Unix, confirmed destination replacement, Unicode-safe preview truncation and catalog consistency. The JSON tests cover formatting and minification, jq filters over the standard library, oversized integers, JSON streams, syntax positions, the three error categories, the output bound, `halt`, document summaries and export safety. The diff tests cover per-side line numbering, identical sides and line endings, relaxed whitespace matching, the context gaps of a changes-only view, unified output including empty ranges, the row and size bounds, file loading and export safety.
 
-Localization tests cover both languages for every tool, bilingual/case-insensitive search, delayed-message translation with unchanged paths, localized error categories including a JSON position, and preference round-trips/defaults. Manually verify switching before and after conversion, switching on a placeholder, and restarting after choosing a language.
+Localization tests cover both languages for every tool, bilingual/case-insensitive search, delayed-message translation with unchanged paths, localized error categories including a JSON position and the split between a diff's input and operation failures, and preference round-trips/defaults. Manually verify switching before and after conversion, switching on a placeholder, and restarting after choosing a language.
 
 The CI workflow runs these checks on macOS, Windows and Linux. CI does not perform native window interaction. For manual UI verification, check all nine navigation items, search (including no matches), file picker cancellation, conversion after an error, copy, export/overwrite confirmation, long results, page switching and forced CPU rendering. For the workbench, check the validation line while typing, the strict switch on a stream, a failing filter, a filter that outlives its bound, and that a result survives navigating away and back. This implementation is built and tested locally on macOS; other-platform CI results must be checked when the workflow runs.

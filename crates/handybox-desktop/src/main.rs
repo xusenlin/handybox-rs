@@ -26,16 +26,16 @@ fn main() {
 }
 
 fn run() -> anyhow::Result<()> {
-    let mut file = None;
+    let mut files = Vec::new();
     for arg in std::env::args_os().skip(1) {
         if arg == "--help" || arg == "-h" {
             println!(
-                "HandyBox — A fast, offline-first desktop utility toolbox.\n\nUsage: handybox [document]\n\nDrop or open a document to convert it to Markdown.\nUse SLINT_BACKEND=winit-software to force CPU rendering."
+                "HandyBox — A fast, offline-first desktop utility toolbox.\n\nUsage: handybox [document]\n       handybox <original> <changed>\n\nDrop or open a document to convert it to Markdown.\nTwo paths are compared side by side in the text diff tool.\nUse SLINT_BACKEND=winit-software to force CPU rendering."
             );
             return Ok(());
         }
-        anyhow::ensure!(file.is_none(), "Expected at most one document path");
-        file = Some(std::path::PathBuf::from(arg));
+        anyhow::ensure!(files.len() < 2, "Expected at most two paths");
+        files.push(std::path::PathBuf::from(arg));
     }
     renderer::init()?;
     macos::install()?;
@@ -52,7 +52,7 @@ fn run() -> anyhow::Result<()> {
         }
         .into(),
     );
-    let _events = controllers::bind(&ui, file)?;
+    let _events = controllers::bind(&ui, files)?;
     // Show before running the loop: the title bar appearance needs the native
     // window, which only exists once the component is shown.
     ui.show()?;

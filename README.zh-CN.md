@@ -6,7 +6,7 @@
 
 一个使用 Rust 和 Slint 构建的、快速且离线优先的桌面工具箱。
 
-HandyBox 把日常小工具集中到一个原生桌面工作区里。当前版本提供**中英文界面**、一个可用的**文档转 Markdown 工具**、一个支持 jq 查询的**JSON 工作台**、一个基于 sha2 与 age 的**哈希与加密**工具，以及另外六个工具的可导航、带说明的占位页面。无需账号、API Key、服务器、WebView，也不会上传任何文档。
+HandyBox 把日常小工具集中到一个原生桌面工作区里。当前版本提供**中英文界面**、一个可用的**文档转 Markdown 工具**、一个支持 jq 查询的**JSON 工作台**、一个基于 sha2 与 age 的**哈希与加密**工具、一个基于 similar 的**文本对比**工具，以及另外五个工具的可导航、带说明的占位页面。无需账号、API Key、服务器、WebView，也不会上传任何文档。
 
 用侧边栏底部的 **English / 中文** 可以立即切换语言。当前工具、搜索内容和已转换的文档都会保留。工具搜索同时支持两种语言和引擎名称。默认英文；选择会保存在本地，下次启动时沿用。
 
@@ -20,6 +20,9 @@ cargo run --locked
 # 启动时直接打开一个文档
 cargo run --locked -- examples/sample.rtf
 
+# 传入两个路径即为一次对比：它们会在文本对比里并排打开
+cargo run --locked -- old.txt new.txt
+
 # 强制使用 CPU 渲染器做兼容性测试
 SLINT_BACKEND=winit-software cargo run --locked
 
@@ -27,7 +30,7 @@ SLINT_BACKEND=winit-software cargo run --locked
 cargo build --release --locked
 ```
 
-仓库锁定了 **Rust 1.88.0**、**Slint 1.13.1**、**anydoc 0.2.4**、**jaq 3** 系列 crate 和 **age 0.12**；更新依赖时请一并提交 `Cargo.lock`。rustup 会在需要时自动安装锁定的工具链。首次下载依赖需要联网；构建完成后的应用完全在本地处理文档。
+仓库锁定了 **Rust 1.88.0**、**Slint 1.13.1**、**anydoc 0.2.4**、**jaq 3** 系列 crate、**age 0.12** 和 **similar 3**；更新依赖时请一并提交 `Cargo.lock`。rustup 会在需要时自动安装锁定的工具链。首次下载依赖需要联网；构建完成后的应用完全在本地处理文档。
 
 macOS 上需安装 Xcode Command Line Tools。Windows 上请使用 MSVC Rust 工具链和 Visual Studio C++ Build Tools。Debian/Ubuntu 上请安装桌面构建依赖：
 
@@ -81,7 +84,7 @@ Windows 和 Linux 的二进制在 [`scripts/Dockerfile.cross`](scripts/Dockerfil
 | 文档转换 | `anydoc` | 已实现：选择/拖入文件、转换、查看 Markdown 源码、全部复制、导出 `.md` |
 | JSON 工作台 | `jaq` | 已实现：校验、格式化、压缩、jq 语法查询、复制与导出 `.json` |
 | 哈希与加密 | `sha2` + `age` | 已实现：SHA-256/SHA-512 摘要与校验、用密码或密钥进行 age 加密与解密 |
-| 文本对比 | `similar` | 占位：文本/文件比较与 unified diff |
+| 文本对比 | `similar` | 已实现：两段文本或两个文件的实时逐行对比、变更统计、复制与导出 unified diff |
 | 图像处理 | `image` + `fast_image_resize` + `oxipng` + `nom-exif` | 占位：格式转换、缩放、PNG 优化与元数据查看 |
 | 压缩与解压 | `zip` + `sevenz-rust2` | 占位：压缩包预览、创建与解压 |
 | 条码识别 | `rxing` | 占位：从图片中解码二维码与条形码 |
@@ -153,6 +156,26 @@ Windows 和 Linux 的二进制在 [`scripts/Dockerfile.cross`](scripts/Dockerfil
 - 接收者和密钥在读写任何内容之前就会解析，因此写错只会得到一条提示，不会产生残留文件。
 - 密钥只存在于页面输入框和工作线程的命令中。除了你选定保存位置的那个文件，不会写入磁盘。
 
+## 文本对比
+
+1. 在**原始**和**修改后**里粘贴或输入文本，点击任意一侧的**打开文件**，也可以在本页时把文件拖到窗口上——它会填进还空着的一侧，两侧都有内容时则替换「修改后」。
+2. 停止输入后，对比会自己运行。这里没有「开始对比」按钮，因为没有什么需要你去要求。
+3. 结果逐行显示：每一行带着它在自己那一侧的行号、`+` 或 `-` 标记，以及一层底色。
+4. **复制 diff** 和 **导出 .diff** 产出标准的 unified diff，上下各带三行上下文。
+
+两个开关决定什么算作改动，改动后都会立即重新对比。**忽略空白差异** 会把仅有空格差别的两行视为同一行——缩进和行尾空格通常不是任何人要找的改动。**只看变更** 会略去没有改动的整段，并用一行说明省略了多少行。**对调两侧** 换个方向读同一次对比，每一侧的文件也跟着一起换。
+
+面板下方的一行统计新增和删除的行数、改动的处数，以及两侧的相似度。完全一致时会用绿字说明，此时也没有 diff 可以复制或导出。
+
+行为与当前限制：
+
+- **每侧最多 2 MiB。** 每一侧都是一个装着整段文本的编辑器，所以这个上限既是解析预算，也是渲染预算。读取文件用同样的上限，非 UTF-8 文件会被拒绝。
+- 对比是**按行**进行的。比较前会去掉行尾换行符，因此同一份内容在 Windows 和 Unix 上写出来是一致的，而不是每一行都算改动。行内的差异不会高亮：Slint 1.13 没有富文本，高亮没有地方可放。
+- Myers 算法最坏情况下是平方复杂度，因此 **5 秒**后会停止继续优化并说明；此时给出的仍是正确的差异，只是不是最小的那一份。面板最多显示 **20000 行**，复制和导出始终使用完整结果。
+- 对比的是屏幕上的两段文本，而不是磁盘上的文件：打开文件后再编辑，比较的就是你编辑之后的内容。记住文件只是为了在 diff 头部写出它的名字、给导出建议一个文件名，以及拒绝覆盖它。
+- 导出先写临时文件再原子落盘，必须使用 `.diff` 或 `.patch` 扩展名，并且拒绝覆盖参与对比的任何一个文件。是否覆盖由原生对话框确认。
+- 切换工具时两段文本都保留在内存中。除非你主动导出，否则不会写入磁盘。
+
 ## 架构
 
 工作区把原生 UI 与可复用的工具操作分开：
@@ -164,13 +187,15 @@ crates/
     src/tools/documents.rs      # 校验、anydoc 适配、结果、导出
     src/tools/json.rs           # 解析、格式化、jaq 适配、有界运行
     src/tools/crypto.rs         # 流式摘要、age 加密与解密
+    src/tools/diff.rs           # 逐行比较、差异行与 unified diff 输出
     tests/catalog.rs            # 稳定路由与实现状态
     tests/documents.rs          # 转换与文件安全的集成测试
     tests/json.rs               # 格式化、查询、上限与导出安全
     tests/crypto.rs             # 摘要、校验与 age 往返
+    tests/diff.rs               # 差异行、选项、unified 输出与导出安全
   handybox-desktop/
     build.rs                    # 编译 Slint 组件树
-    src/main.rs                 # 启动、等宽字体、可选的初始文档
+    src/main.rs                 # 启动、等宽字体、可选的初始路径
     src/macos.rs                # macOS Dock 图标与浅色标题栏
     src/locale.rs               # 工具翻译、类型化消息、各语言的界面字体
     src/settings.rs             # 原子写入的本地语言偏好
@@ -179,10 +204,12 @@ crates/
     src/controllers/documents.rs# 转换器的状态、回调与事件
     src/controllers/json.rs     # 工作台的状态、校验节奏与事件
     src/controllers/crypto.rs   # 源文件、三种操作及其报告
+    src/controllers/diff.rs     # 两侧文本、各自的文件与对比节奏
     src/worker/mod.rs           # 有界的后台命令/事件桥接
     src/worker/documents.rs     # 选择器、转换与 Markdown 导出
     src/worker/json.rs          # 校验、jq 运行、打开文件与导出
     src/worker/crypto.rs        # 选择器、摘要、age 加密与解密
+    src/worker/diff.rs          # 选择器、对比与 unified diff 导出
     ui/app.slint                # 仅外壳：侧边栏 + 当前页 + 状态栏
     ui/theme.slint              # 共享调色板、字体、间距、圆角
     ui/icons.slint              # 内嵌 SVG 资源目录
@@ -192,10 +219,12 @@ crates/
     ui/state/documents.slint    # 转换器的属性与回调
     ui/state/json.slint         # 工作台的属性与回调
     ui/state/crypto.slint       # 哈希与加密的属性与回调
+    ui/state/diff.slint         # 文本对比的属性与回调
     ui/components/              # 可复用的视觉构件
     ui/pages/documents.slint    # 组合出转换页面
     ui/pages/json.slint         # 组合出工作台页面
     ui/pages/crypto.slint       # 组合出哈希与加密页面
+    ui/pages/diff.slint         # 组合出文本对比页面
     ui/pages/placeholder.slint  # 由元数据驱动的计划中工具页面
 assets/app-icon.png              # 圆角图标：侧边栏与窗口
 assets/macos-icon.png            # 按 Apple 网格制作的图标：Dock 与 .icns
@@ -215,7 +244,7 @@ Slint 组件 → 回调 → 控制器 → 有界命令通道
 Slint 属性 ← 控制器 ← 50 ms 事件轮询 ← 结果通道
 ```
 
-**Core：** 公开操作使用 Rust 的输入/输出类型，完全不知道窗口的存在。工具目录为每个工具提供稳定的枚举 ID 和字符串路由；导航不依赖菜单下标。引擎是 `tools/` 内的适配器，因此未来的 CLI 或测试都能复用。每个工具暴露自己的稳定错误分类枚举（`DocumentIssue`、`JsonIssue`），桌面层不需要去匹配错误字符串。
+**Core：** 公开操作使用 Rust 的输入/输出类型，完全不知道窗口的存在。工具目录为每个工具提供稳定的枚举 ID 和字符串路由；导航不依赖菜单下标。引擎是 `tools/` 内的适配器，因此未来的 CLI 或测试都能复用。每个工具暴露自己的稳定错误分类枚举（`DocumentIssue`、`JsonIssue`、`CryptoIssue`、`DiffIssue`），桌面层不需要去匹配错误字符串。
 
 **桌面控制器：** `controllers/mod.rs` 是外壳。它把目录条目翻译成 Slint 模型，按工具名或引擎做大小写不敏感的导航过滤，持有语言与唯一的提示通道，并把工作线程事件分发给对应的工具。工具控制器持有自己的状态、注册自己的回调、在切换语言时重绘自己的文案；它只通过 `submit`、`dispatch`、`finish`、`notify` 与外壳打交道。使用弱组件句柄避免 UI 所有权循环。只有主线程会碰 Slint 属性。
 
@@ -225,7 +254,7 @@ Slint 属性 ← 控制器 ← 50 ms 事件轮询 ← 结果通道
 
 操作结果以 `Toast` 呈现：窗口底部的浮动提示，到时自动消失。它是布局的兄弟节点而不是布局里的一行，因此出现和隐藏都不会引起页面重排，也不会占用结果面板的高度。它也从不被创建或销毁，所以淡入淡出都能播完；新的提示到来时会重置倒计时而不是沿用剩余时间。错误比成功提示停留更久，点击可以立即关闭。`StatusBar` 刻意做成静态的：它被所有工具共用，放在那里的临时消息就必须在切换导航时清理。
 
-**UI 组合：** 页面绑定到本工具的状态全局并发出它的回调；它们不做文件 I/O，也不引用引擎 API。外壳级别的属性（`busy`、`dragging`）仍然从 `app.slint` 往下传，`app.slint` 只负责组合外壳和路由。每个工具一个全局，把窗口本身的接口维持在所有工具共用的那部分，而不是每多一个字段就多一个属性。`Sidebar` 组合 `NavItem` 和 `TextField`；`DocumentsPage` 组合 `PageHeader`、`FileCard`、格式 `Badge` 和 `SourcePanel`；`JsonPage` 组合 `PageHeader`、`TextField`、`JsonInput`、同一个 `SourcePanel`，以及自己的一行校验结果（含 `Toggle`）；`SourcePanel` 组合 `Action`、`CodeView` 和 `EmptyState`，`JsonInput` 组合 `TextEditor`。工作台的两张卡片各自放在一个普通 `Rectangle` 里并按它定尺寸：布局是按子元素的首选宽度分配空间的，装着一句话的卡片会不断挤占邻居。校验结果之所以是页面的一行而不是卡片的一部分，也是同一个原因。`CodeView` 把行放进 `ListView`：`for` 的直接父元素是 `ListView` 时会被编译成虚拟化的 repeater，这是大文档不卡的唯一原因——用一个 `Text` 装整篇时，一份 26000 字的中文文档会让窗口冻住十几秒，因为 FemtoVG 要整形全文才能测量尺寸，而它 1000 条的整形缓存在没有词边界的文本上会持续颠簸。`TextEditor` 是例外：编辑需要一个光标和一段选区，所以工作台的输入是单个 `TextInput`，JSON 的 4 MiB 上限正是让这件事可以承受的前提。`StatusBar` 在各工具间共享。视觉改动应放在最小的相关组件里，共享样式令牌放在 `Theme` 中。
+**UI 组合：** 页面绑定到本工具的状态全局并发出它的回调；它们不做文件 I/O，也不引用引擎 API。外壳级别的属性（`busy`、`dragging`）仍然从 `app.slint` 往下传，`app.slint` 只负责组合外壳和路由。每个工具一个全局，把窗口本身的接口维持在所有工具共用的那部分，而不是每多一个字段就多一个属性。`Sidebar` 组合 `NavItem` 和 `TextField`；`DocumentsPage` 组合 `PageHeader`、`FileCard`、格式 `Badge` 和 `SourcePanel`；`JsonPage` 组合 `PageHeader`、`TextField`、`JsonInput`、同一个 `SourcePanel`，以及自己的一行校验结果（含 `Toggle`）；`SourcePanel` 组合 `Action`、`CodeView` 和 `EmptyState`，`JsonInput` 组合 `TextEditor`；`DiffPage` 组合 `PageHeader`、两个 `Toggle`、一个 `Action`、两个 `DiffInput` 和一个 `DiffPanel`——差异面板自成一个结果卡片，因为差异的一行是行号槽、标记和正文，而不是一个字符串。工作台的两张卡片、以及文本对比的两侧，都各自放在一个普通 `Rectangle` 里并按它定尺寸：布局是按子元素的首选宽度分配空间的，装着一句话的卡片会不断挤占邻居。校验结果之所以是页面的一行而不是卡片的一部分，也是同一个原因。`CodeView` 和 `DiffPanel` 都把行放进 `ListView`：`for` 的直接父元素是 `ListView` 时会被编译成虚拟化的 repeater，这是大文档不卡的唯一原因——用一个 `Text` 装整篇时，一份 26000 字的中文文档会让窗口冻住十几秒，因为 FemtoVG 要整形全文才能测量尺寸，而它 1000 条的整形缓存在没有词边界的文本上会持续颠簸。`TextEditor` 是例外：编辑需要一个光标和一段选区，所以工作台的输入、以及对比的每一侧都是单个 `TextInput`，JSON 的 4 MiB 和每侧 2 MiB 上限正是让这件事可以承受的前提。`StatusBar` 在各工具间共享。视觉改动应放在最小的相关组件里，共享样式令牌放在 `Theme` 中。
 
 工作区刻意采用小而类型化的命令/事件桥接，而不是动态插件 ABI 或通用 JSON 分发：新增工具添加的是编译器会检查的枚举分支，而不是一个只能信任的注册表。
 
@@ -250,7 +279,7 @@ Slint 属性 ← 控制器 ← 50 ms 事件轮询 ← 结果通道
 
 ### 本地化
 
-`SettingsMenu` 是一个可复用的侧边栏组件：文字标识旁的齿轮按钮，点击弹出 `PopupWindow` 列出两种语言。整行并列的语言按钮，为一个很少改动的设置占掉了一整行侧边栏高度。两个选项保持各自的母语写法（`English`、`中文`），无论当前是哪种语言都认得出来。`ui/i18n.slint` 集中管理静态组件文案，通过响应式绑定跟随 `I18n.chinese`。Rust 侧的 `locale.rs` 负责翻译后的工具目录元数据、状态消息和应用错误描述。核心层的错误暴露为稳定的 `DocumentIssue` 和 `JsonIssue` 分类；翻译从不依赖匹配英文错误字符串。分类本身可以带数据——JSON 语法错误带着行号和列号——因此位置信息在切换语言后依然存在。工作线程事件携带类型化的消息/结果，在展示时才按当前语言翻译——包括在转换过程中切换语言的情况。文件路径、引擎名称和文档内容永远不翻译。
+`SettingsMenu` 是一个可复用的侧边栏组件：文字标识旁的齿轮按钮，点击弹出 `PopupWindow` 列出两种语言。整行并列的语言按钮，为一个很少改动的设置占掉了一整行侧边栏高度。两个选项保持各自的母语写法（`English`、`中文`），无论当前是哪种语言都认得出来。`ui/i18n.slint` 集中管理静态组件文案，通过响应式绑定跟随 `I18n.chinese`。Rust 侧的 `locale.rs` 负责翻译后的工具目录元数据、状态消息和应用错误描述。核心层的错误暴露为稳定的 `DocumentIssue`、`JsonIssue`、`CryptoIssue` 和 `DiffIssue` 分类；翻译从不依赖匹配英文错误字符串。分类本身可以带数据——JSON 语法错误带着行号和列号——因此位置信息在切换语言后依然存在。工作线程事件携带类型化的消息/结果，在展示时才按当前语言翻译——包括在转换过程中切换语言的情况。文件路径、引擎名称和文档内容永远不翻译。
 
 界面的比例字体跟随所选语言（`Language::font_family`）：中文用 PingFang SC、Microsoft YaHei 或 Noto Sans CJK SC，英文沿用原来的拉丁字体。这不只是排版问题，更是性能要求。当主字体缺少哪怕一个字形时，FemtoVG 渲染器就会为该文本元素重新查询系统回退字体列表——每次布局、每一帧都查一次，在 macOS 上实测约 0.6 ms/元素，另外还有一次性的 CJK 字体加载和字形光栅化开销。因此界面文案必须落在所属字体的覆盖范围内；英文徽标写作 `DOCUMENT TO MARKDOWN`，正是为了避开 Helvetica Neue 没有的 `→`。
 
@@ -288,8 +317,8 @@ cargo test --workspace --locked
 cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
-集成测试覆盖了 CSV 的 Unicode/表格输出、按内容检测的 RTF、真实的 DOCX ZIP 容器、无效/空/缺失/超大输入、完整结果导出、源文件覆盖保护、Unix 上的符号链接保护、确认后的目标覆盖、Unicode 安全的预览截断以及工具目录一致性。JSON 部分覆盖了格式化与压缩、使用标准库的 jq 表达式、超大整数、JSON 流、语法错误位置、三类错误、输出上限、`halt`、文档概要与导出安全。
+集成测试覆盖了 CSV 的 Unicode/表格输出、按内容检测的 RTF、真实的 DOCX ZIP 容器、无效/空/缺失/超大输入、完整结果导出、源文件覆盖保护、Unix 上的符号链接保护、确认后的目标覆盖、Unicode 安全的预览截断以及工具目录一致性。JSON 部分覆盖了格式化与压缩、使用标准库的 jq 表达式、超大整数、JSON 流、语法错误位置、三类错误、输出上限、`halt`、文档概要与导出安全。文本对比部分覆盖了各侧的行号、完全一致与换行符、忽略空白后的匹配、只看变更时的上下文与省略行、含空区间的 unified 输出、行数与体积上限、文件读取与导出安全。
 
-本地化测试覆盖了每个工具的两种语言、双语与大小写不敏感的搜索、延迟消息的翻译（路径保持原样）、本地化的错误分类（含 JSON 的错误位置），以及偏好设置的往返读写与默认值。手动验证请覆盖：转换前后切换语言、在占位页切换语言、以及选定语言后重启应用。
+本地化测试覆盖了每个工具的两种语言、双语与大小写不敏感的搜索、延迟消息的翻译（路径保持原样）、本地化的错误分类（含 JSON 的错误位置、以及文本对比中「文本问题」与「操作失败」的区分），以及偏好设置的往返读写与默认值。手动验证请覆盖：转换前后切换语言、在占位页切换语言、以及选定语言后重启应用。
 
 CI 工作流会在 macOS、Windows 和 Linux 上运行这些检查。CI 不做原生窗口交互。手动验证 UI 时，请检查全部九个导航项、搜索（包括无匹配的情况）、取消文件选择器、出错后再次转换、复制、导出/覆盖确认、超长结果、页面切换以及强制 CPU 渲染。工作台还需检查：输入时的校验提示、对数据流打开严格开关、出错的表达式、触到上限的表达式，以及离开页面再回来时结果是否还在。当前实现是在 macOS 上本地构建和测试的；其他平台的结果需要在 CI 工作流运行后查看。
