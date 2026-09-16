@@ -2,8 +2,8 @@
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
     tools::{
-        clipboard::ClipboardIssue, codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue,
-        documents::DocumentIssue, json::JsonIssue,
+        cleanup::CleanupIssue, clipboard::ClipboardIssue, codes::CodesIssue, crypto::CryptoIssue,
+        diff::DiffIssue, documents::DocumentIssue, json::JsonIssue,
     },
 };
 use std::path::PathBuf;
@@ -100,13 +100,30 @@ pub fn tool_text(
         ToolId::Cleanup => (
             "磁盘清理",
             "发现重复和冗余，找回磁盘空间。",
-            "重复文件、空文件与大文件扫描\n相似图片查找\n先预览，再确认清理",
+            "重复文件、空文件与大文件扫描\n只把选中的内容移到系统回收站\n先预览、再确认，然后才会动文件",
         ),
         ToolId::Clipboard => (
             "剪贴板",
             "为复制的内容提供一个临时工作区。",
             "文本、图片与文件内容查看\n手动收集与内容复制\n可选择启用的会话历史",
         ),
+    }
+}
+
+/// Byte counts are shown to people, not parsed: one decimal, and the unit that
+/// keeps the number readable. Disk cleanup deals in gigabytes and the clipboard
+/// in kilobytes; one ladder covers both.
+pub fn size(bytes: u64) -> String {
+    const KIB: f64 = 1024.0;
+    const MIB: f64 = KIB * 1024.0;
+    const GIB: f64 = MIB * 1024.0;
+    let value = bytes as f64;
+    if value >= GIB {
+        format!("{:.1} GiB", value / GIB)
+    } else if value >= MIB {
+        format!("{:.1} MiB", value / MIB)
+    } else {
+        format!("{:.1} KiB", value / KIB)
     }
 }
 
@@ -129,6 +146,7 @@ pub enum FailureKind {
     Diff(DiffIssue),
     Codes(CodesIssue),
     Clipboard(ClipboardIssue),
+    Cleanup(CleanupIssue),
     /// The OS clipboard could not be reached at all — which any tool can run
     /// into, because every one of them can copy its result.
     ClipboardAccess,
@@ -199,6 +217,16 @@ impl Failure {
                 .downcast_ref::<ClipboardIssue>()
                 .copied()
                 .map(FailureKind::Clipboard),
+            error,
+        )
+    }
+
+    pub fn cleanup(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<CleanupIssue>()
+                .copied()
+                .map(FailureKind::Cleanup),
             error,
         )
     }
@@ -339,6 +367,18 @@ impl Failure {
                 ClipboardIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
+            FailureKind::Cleanup(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Cleanup(issue) => match issue {
+                CleanupIssue::InputMissing => "找不到该文件夹。",
+                CleanupIssue::Read => "无法读取该文件夹，请检查访问权限。",
+                CleanupIssue::NotFolder => "请选择文件夹，而不是文件。",
+                CleanupIssue::NothingSelected => "还没有选中任何内容。",
+                CleanupIssue::WholeGroup => {
+                    "某一组的所有副本都被选中了，请为每个文件至少保留一份。"
+                }
+                CleanupIssue::Outside => "该文件已不在本次扫描的文件夹内。",
+            }
+            .into(),
             FailureKind::ClipboardAccess => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -380,6 +420,8 @@ pub enum Message {
     Encrypting,
     Decrypting,
     Capturing,
+    Searching,
+    Removing,
     KeyGenerated,
     Copied,
     Collected,
@@ -387,6 +429,14 @@ pub enum Message {
     Cleared,
     Watching,
     Unwatched,
+    /// What a removal actually did. Skipped entries are not failures: a file
+    /// that changed since the scan is one this tool leaves alone.
+    Trashed {
+        files: usize,
+        freed: u64,
+        skipped: usize,
+    },
+    NothingFound,
     Saved(PathBuf),
     Cancelled,
     Complete,
@@ -413,6 +463,8 @@ impl Message {
                 | Self::Cleared
                 | Self::Watching
                 | Self::Unwatched
+                | Self::Trashed { .. }
+                | Self::NothingFound
                 | Self::Error(_)
         )
     }
@@ -441,6 +493,12 @@ impl Message {
                 "已生成新的密钥对。请妥善保存私钥：没有它，加密给该公钥的文件将无法再打开。",
             ),
             Self::Capturing => lang.text("Reading the clipboard…", "正在读取剪贴板…"),
+            Self::Searching => lang.text("Reading the folder locally…", "正在本地扫描文件夹…"),
+            Self::Removing => lang.text("Moving to the trash…", "正在移到回收站…"),
+            Self::NothingFound => lang.text(
+                "Nothing to clean up here. This folder holds no duplicates.",
+                "这里没有需要清理的内容，该文件夹中没有重复文件。",
+            ),
             Self::Copied => lang.text("Copied to your clipboard.", "已复制到剪贴板。"),
             Self::Collected => lang.text(
                 "Added to your clipboard workspace.",
@@ -478,6 +536,43 @@ impl Message {
                 "Conversion finished, but no text was found in this document.",
                 "转换完成，但文档中未找到可提取的文本。",
             ),
+            Self::Trashed {
+                files,
+                freed,
+                skipped,
+            } => {
+                let moved = format!(
+                    "{} {} {}{}",
+                    lang.text("Moved", "已将"),
+                    files,
+                    if *files == 1 {
+                        lang.text("file to the trash", "个文件移到回收站")
+                    } else {
+                        lang.text("files to the trash", "个文件移到回收站")
+                    },
+                    if *freed > 0 {
+                        format!(
+                            ", {} {}",
+                            lang.text("freeing", "释放"),
+                            size(*freed)
+                        )
+                    } else {
+                        String::new()
+                    }
+                );
+                if *skipped == 0 {
+                    return format!("{moved}.");
+                }
+                return format!(
+                    "{moved}. {} {} {}",
+                    lang.text("Skipped", "已跳过"),
+                    skipped,
+                    lang.text(
+                        "that had changed since the scan.",
+                        "个在扫描后发生了变化的文件。"
+                    )
+                );
+            }
             Self::Saved(path) => {
                 return format!("{} {}", lang.text("Saved to", "已保存到"), path.display());
             }
@@ -584,6 +679,38 @@ mod tests {
                 .render(Language::Chinese)
                 .contains("unsupported color type")
         );
+    }
+
+    #[test]
+    fn cleanup_failures_are_about_the_selection_as_often_as_the_folder() {
+        // What stands between a selection and the trash has to say which rule
+        // it was, in the language the person is reading.
+        let whole = Failure::cleanup(anyhow::anyhow!(CleanupIssue::WholeGroup));
+        assert!(!whole.about_input());
+        assert!(whole.render(Language::English).contains("Leave one copy"));
+        assert!(whole.render(Language::Chinese).contains("至少保留一份"));
+        let folder = Failure::cleanup(anyhow::anyhow!(CleanupIssue::NotFolder));
+        assert!(folder.render(Language::English).contains("not a file"));
+        assert!(folder.render(Language::Chinese).contains("文件夹"));
+        // A stale result is the only way to reach this one, which is exactly
+        // when it needs to be understood.
+        let outside = Failure::cleanup(anyhow::anyhow!(CleanupIssue::Outside));
+        assert!(outside.render(Language::Chinese).contains("不在本次扫描"));
+        // Sizes are written the way people read them, not in bytes.
+        assert_eq!(size(1536), "1.5 KiB");
+        assert_eq!(size(3 * 1024 * 1024 + 512 * 1024), "3.5 MiB");
+        assert_eq!(size(2 * 1024 * 1024 * 1024), "2.0 GiB");
+        let notice = Message::Trashed {
+            files: 3,
+            freed: 2 * 1024 * 1024,
+            skipped: 1,
+        };
+        assert!(notice.is_notice());
+        let english = notice.render(Language::English);
+        assert!(english.contains("3 files to the trash"), "{english}");
+        assert!(english.contains("2.0 MiB") && english.contains("Skipped 1"));
+        let chinese = notice.render(Language::Chinese);
+        assert!(chinese.contains("3 个文件移到回收站") && chinese.contains("已跳过 1"));
     }
 
     #[test]

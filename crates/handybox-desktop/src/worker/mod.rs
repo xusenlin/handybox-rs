@@ -2,6 +2,7 @@
 //!
 //! Commands and events are grouped per tool: the shell only has to route them,
 //! and a new tool adds a module here instead of another arm in one large enum.
+pub mod cleanup;
 pub mod clipboard;
 pub mod codes;
 pub mod crypto;
@@ -21,6 +22,7 @@ pub enum Command {
     Diff(diff::Command),
     Codes(codes::Command),
     Clipboard(clipboard::Command),
+    Cleanup(cleanup::Command),
     /// Copying is the same operation whichever tool produced the text, and the
     /// clipboard context is shared, so it lives here rather than in both tools.
     Copy(String),
@@ -33,6 +35,7 @@ pub enum Event {
     Diff(diff::Event),
     Codes(codes::Event),
     Clipboard(clipboard::Event),
+    Cleanup(cleanup::Event),
     /// A command that only produced a notice: a copy, an export, a cancelled
     /// dialog or a failure. Every tool's busy state ends here.
     Finished(std::result::Result<Message, Failure>),
@@ -116,6 +119,7 @@ impl Worker {
                             Command::Clipboard(command) => {
                                 clipboard::execute(command, &mut shared, &output)
                             }
+                            Command::Cleanup(command) => cleanup::execute(command, &output),
                             Command::Copy(text) => {
                                 let _ = output.send(Event::Finished(shared.copy(text)));
                             }

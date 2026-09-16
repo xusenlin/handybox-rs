@@ -21,6 +21,9 @@ serde_json = "1"
 sha2 = "0.10"
 similar = "3"
 tempfile.workspace = true
+# Disk cleanup never unlinks anything: what it removes goes to the platform's
+# own trash, where a wrong click is recoverable.
+trash = "5"
 
 [dev-dependencies]
 # Writing barcodes is a test fixture, not a feature: the tests draw the codes

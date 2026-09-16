@@ -18,6 +18,18 @@ export struct DiffRow {
     text: string,
 }
 
+// One row of a cleanup result. A header stands for a group of identical files
+// and is not selectable, which is what `index: -1` means; every other row points
+// back at the entry it came from, because the list the page shows and the list
+// Rust holds are not the same length once headers are in it.
+export struct CleanupRow {
+    header: bool,
+    label: string,
+    detail: string,
+    selected: bool,
+    index: int,
+}
+
 // One item in the clipboard workspace. `kind` is 0 text, 1 image, 2 file
 // references; `label` is that kind in the display language. `id` is the
 // workspace's own identifier rather than a row index, because with automatic

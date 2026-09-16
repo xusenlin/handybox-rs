@@ -1,5 +1,6 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
+pub mod cleanup;
 pub mod clipboard;
 pub mod codes;
 pub mod crypto;
@@ -179,6 +180,7 @@ struct Tools {
     diff: diff::Controller,
     codes: codes::Controller,
     clipboard: clipboard::Controller,
+    cleanup: cleanup::Controller,
 }
 
 impl Tools {
@@ -190,6 +192,7 @@ impl Tools {
             diff: diff::Controller::new(ui),
             codes: codes::Controller::new(ui),
             clipboard: clipboard::Controller::new(ui),
+            cleanup: cleanup::Controller::new(ui),
         }
     }
 
@@ -200,6 +203,7 @@ impl Tools {
         self.diff.bind(shell);
         self.codes.bind(shell);
         self.clipboard.bind(shell);
+        self.cleanup.bind(shell);
     }
 
     /// Re-render what every tool derives from its state. Only presentation
@@ -212,6 +216,7 @@ impl Tools {
         self.diff.refresh(language);
         self.codes.refresh(language);
         self.clipboard.refresh(language);
+        self.cleanup.refresh(language);
     }
 
     fn handle(&self, shell: &Shell, event: Event) {
@@ -222,6 +227,7 @@ impl Tools {
             Event::Diff(event) => self.diff.handle(shell, event),
             Event::Codes(event) => self.codes.handle(shell, event),
             Event::Clipboard(event) => self.clipboard.handle(shell, event),
+            Event::Cleanup(event) => self.cleanup.handle(shell, event),
             Event::Finished(outcome) => shell.finish(outcome),
         }
     }
@@ -242,7 +248,11 @@ impl Tools {
     /// While one of their pages is showing, a dropped file is its input rather
     /// than something to route away.
     fn open(&self, shell: &Shell, path: PathBuf) {
-        if shell.showing("crypto") {
+        // A folder is not an input to any of the tools that take a file, and
+        // there is exactly one tool that takes a folder.
+        if path.is_dir() {
+            self.cleanup.open(shell, path);
+        } else if shell.showing("crypto") {
             self.crypto.open(shell, path, None);
         } else if shell.showing("diff") {
             self.diff.open(shell, path);

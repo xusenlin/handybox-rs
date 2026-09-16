@@ -1,0 +1,114 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "../components/action.slint";
+import { FileCard } from "../components/file_card.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { Segmented } from "../components/segmented.slint";
+import { CleanupList } from "../components/cleanup_list.slint";
+import { Icons } from "../icons.slint";
+import { CleanupState } from "../state/cleanup.slint";
+
+export component CleanupPage inherits VerticalLayout {
+    in property <bool> busy;
+    in property <bool> dragging;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.cleanup-title; description: I18n.cleanup-description; badge: I18n.cleanup-badge; }
+    // What to look for. A result belongs to the mode it was read with, so
+    // changing this clears the list rather than relabelling it.
+    //
+    // In a row of its own with a spacer beside it: a child of a vertical layout
+    // is given the full width across, and `horizontal-stretch: 0` only decides
+    // how leftover width is shared along a row. The spacer is what takes the
+    // rest, so the control keeps the size of its own labels.
+    HorizontalLayout {
+        Segmented {
+            options: [I18n.cleanup-duplicates, I18n.cleanup-empty, I18n.cleanup-large];
+            // Usable while this page's own scan runs: asking a different
+            // question stops that scan rather than queueing behind it. Still
+            // refused while another tool is working, because the worker that
+            // would answer is not free.
+            enabled: !root.busy || CleanupState.working;
+            selected <=> CleanupState.mode;
+            changed(index) => { CleanupState.mode-selected(index); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    FileCard {
+        filename: CleanupState.folder; detail: CleanupState.detail;
+        busy: root.busy; converting: CleanupState.working; dragging: root.dragging;
+        icon: Icons.folder;
+        prompt: I18n.cleanup-choose;
+        drop-prompt: I18n.cleanup-drop;
+        browse-label: I18n.cleanup-browse;
+        change-label: I18n.cleanup-change;
+        choose => { CleanupState.choose(); }
+    }
+    CleanupList {
+        vertical-stretch: 1; min-height: 200px;
+        rows: CleanupState.rows;
+        has-result: CleanupState.has-result;
+        busy: root.busy;
+        working: CleanupState.working;
+        mode: CleanupState.mode;
+        has-selection: CleanupState.has-selection;
+        summary: CleanupState.summary;
+        toggle(index) => { CleanupState.toggle(index); }
+        select-extra => { CleanupState.select-extra(); }
+        clear-selection => { CleanupState.clear-selection(); }
+    }
+    // Removing is two presses, and the second one is only ever reached from a
+    // sentence that says exactly what would go and where it would go to.
+    HorizontalLayout {
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 1;
+            Text {
+                text: CleanupState.confirming ? CleanupState.confirm-text : CleanupState.selection;
+                color: CleanupState.confirming ? Theme.error : Theme.muted;
+                font-size: 12px; font-weight: CleanupState.confirming ? 600 : 400;
+                wrap: word-wrap; min-width: 0px;
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if !CleanupState.confirming: Action {
+                label: I18n.cleanup-rescan; icon: Icons.search;
+                enabled: CleanupState.can-scan && !root.busy;
+                clicked => { CleanupState.scan(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if CleanupState.confirming: Action {
+                label: I18n.cleanup-cancel;
+                enabled: !root.busy;
+                clicked => { CleanupState.cancel(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if !CleanupState.confirming: Action {
+                label: I18n.cleanup-trash; icon: Icons.alert;
+                enabled: CleanupState.has-selection && !root.busy;
+                clicked => { CleanupState.ask(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if CleanupState.confirming: Action {
+                label: I18n.cleanup-confirm; icon: Icons.alert; primary: true;
+                enabled: !root.busy;
+                clicked => { CleanupState.confirm(); }
+            }
+        }
+    }
+    // A sentence of any length can only wrap here; it can never take width from
+    // the card above it.
+    Text {
+        text: CleanupState.status;
+        color: CleanupState.status-tone == 2 ? Theme.error : CleanupState.status-tone == 1 ? Theme.success : Theme.muted;
+        font-size: 11px; font-weight: CleanupState.status-tone == 0 ? 400 : 600;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.cleanup-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

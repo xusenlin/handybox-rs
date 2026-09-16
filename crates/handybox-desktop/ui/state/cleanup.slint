@@ -1,0 +1,40 @@
+import { CleanupRow } from "../types.slint";
+
+// Everything the Disk cleanup tool owns.
+//
+// The selection lives in Rust rather than in the rows, because what may be
+// removed is a rule about the result as a whole — a duplicate group has to keep
+// a copy — and a page that owned the answer could only be asked to agree.
+export global CleanupState {
+    in property <string> folder;
+    in property <string> detail;
+    /// A scan, not a native dialog: only this drives the progress bar.
+    in property <bool> working;
+    in property <bool> can-scan;
+    /// 0 duplicates, 1 empty, 2 the biggest files. In-out because the control
+    /// writes it, and Rust writes it back when a result is restored.
+    in-out property <int> mode;
+    in property <[CleanupRow]> rows;
+    in property <bool> has-result;
+    in property <string> summary;
+    in property <string> selection;
+    in property <bool> has-selection;
+    /// Whether the confirmation is armed, and what it says. Both come from the
+    /// checked plan, so the sentence and the files that would go are one value.
+    in property <bool> confirming;
+    in property <string> confirm-text;
+    in property <string> status;
+    // 0 neutral, 1 nothing has been touched, 2 the answer is partial.
+    in property <int> status-tone;
+    callback choose();
+    callback scan();
+    callback mode-selected(int);
+    callback toggle(int);
+    /// Select the copies that are extra, or everything that is empty. Never
+    /// offered for the biggest files: those are large, not rubbish.
+    callback select-extra();
+    callback clear-selection();
+    callback ask();
+    callback cancel();
+    callback confirm();
+}

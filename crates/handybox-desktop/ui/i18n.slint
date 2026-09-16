@@ -155,6 +155,31 @@ export global I18n {
     out property <string> clipboard-none-title: chinese ? "看看里面是什么" : "A closer look";
     out property <string> clipboard-none-hint: chinese ? "选中左侧的一条内容，这里会显示它的全文、文件路径或图片。" : "Choose an item on the left to see the whole text, the paths it stands for, or the picture itself.";
     out property <string> clipboard-footnote: chinese ? "所有内容仅保存在内存中  ·  关闭窗口即清空  ·  自动收集默认关闭，且不会写入磁盘  ·  最多保留 60 条 / 128 MiB" : "Held in memory only  ·  Emptied when the window closes  ·  Automatic collecting is off by default and nothing is written to disk  ·  Up to 60 items and 128 MiB";
+    // Disk cleanup. The only tool here that changes files, so its wording says
+    // what will happen before it happens, and never calls removal "cleaning".
+    out property <string> cleanup-title: chinese ? "磁盘清理" : "Disk cleanup";
+    out property <string> cleanup-description: chinese ? "看清文件夹里的重复、空白与庞然大物，再决定移走哪些。" : "See the duplicates, the empties and the giants in a folder, then decide what goes.";
+    out property <string> cleanup-badge: chinese ? "先预览，再确认" : "PREVIEW, THEN CONFIRM";
+    out property <string> cleanup-duplicates: chinese ? "重复文件" : "Duplicates";
+    out property <string> cleanup-empty: chinese ? "空文件与空目录" : "Empty";
+    out property <string> cleanup-large: chinese ? "大文件" : "Biggest";
+    out property <string> cleanup-choose: chinese ? "选择文件夹，或把文件夹拖到这里" : "Choose a folder or drop one here";
+    out property <string> cleanup-drop: chinese ? "松开以扫描该文件夹" : "Drop to scan this folder";
+    out property <string> cleanup-browse: chinese ? "选择文件夹" : "Choose folder";
+    out property <string> cleanup-change: chinese ? "更换文件夹" : "Change folder";
+    out property <string> cleanup-found: chinese ? "扫描结果" : "Findings";
+    out property <string> cleanup-found-caption: chinese ? " / 勾选要移走的内容" : " / tick what may go";
+    out property <string> cleanup-scanning: chinese ? " / 正在扫描…" : " / Scanning…";
+    out property <string> cleanup-keep-one: chinese ? "每组只留一份" : "Keep one of each";
+    out property <string> cleanup-select-all: chinese ? "全选" : "Select all";
+    out property <string> cleanup-clear-selection: chinese ? "取消选择" : "Clear";
+    out property <string> cleanup-rescan: chinese ? "重新扫描" : "Scan again";
+    out property <string> cleanup-trash: chinese ? "移到回收站…" : "Move to trash…";
+    out property <string> cleanup-cancel: chinese ? "取消" : "Cancel";
+    out property <string> cleanup-confirm: chinese ? "确认移动" : "Yes, move them";
+    out property <string> cleanup-empty-title: chinese ? "先看看里面有什么" : "Start by looking";
+    out property <string> cleanup-empty-hint: chinese ? "扫描结果会显示在这里，逐条勾选后才会动文件。\n选择一个文件夹，扫描会自动开始。" : "What the scan finds appears here, and nothing moves until you tick it.\nChoose a folder, and the scan starts on its own.";
+    out property <string> cleanup-footnote: chinese ? "全部在本机扫描  ·  单次最多 20 万个文件 / 读取 16 GiB / 60 秒  ·  重复只按内容判断  ·  跳过 .git 等版本库与系统目录  ·  不跟随符号链接  ·  删除即移入系统回收站，可还原" : "Scanned on your device  ·  Up to 200,000 files, 16 GiB read and 60 seconds per scan  ·  Duplicates are decided by content alone  ·  Version control and system folders are skipped  ·  Links are never followed  ·  What goes, goes to the system trash and can be put back";
     out property <string> planned: chinese ? "开发计划" : "PLANNED";
     out property <string> planned-title: chinese ? "新工具正在准备中" : "A new tool is taking shape";
     out property <string> planned-hint: chinese ? "已有多个工具可以使用。\n此工具尚未实现，以下为计划支持的能力。" : "Several tools are ready today.\nThis tool is not implemented yet. Here is what is planned.";

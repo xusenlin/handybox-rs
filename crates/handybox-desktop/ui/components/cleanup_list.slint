@@ -1,0 +1,120 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { CleanupRow } from "../types.slint";
+
+// A box that is ticked, rather than a switch that is thrown: a row is one of
+// many, and many switches read as many settings.
+component Tick inherits Rectangle {
+    in property <bool> checked;
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : #c3ccd4;
+    background: root.checked ? Theme.accent : Theme.surface;
+    if root.checked: Icon { source: Icons.check-circle; ink: white; x: 2px; y: 2px; width: 14px; height: 14px; }
+}
+
+// What a scan found: one row per file, with the group headings that say what a
+// row means. Nothing here removes anything — ticking a row only says which
+// files the page will ask about.
+//
+// Like CodeView, the `for` is the direct child of the ListView, which is what
+// compiles it into a virtualized repeater.
+export component CleanupList inherits Rectangle {
+    in property <[CleanupRow]> rows;
+    in property <bool> has-result;
+    in property <bool> busy;
+    in property <bool> working;
+    in property <int> mode;
+    in property <bool> has-selection;
+    in property <string> summary;
+    callback toggle(int);
+    callback select-extra();
+    callback clear-selection();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.drive; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.cleanup-found; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Text {
+                text: root.working ? I18n.cleanup-scanning : I18n.cleanup-found-caption;
+                font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            // The selection people actually want, in one press. Not offered for
+            // the biggest files: those are large rather than unwanted, and only
+            // a person can say which of them may go.
+            if root.mode != 2: Action {
+                label: root.mode == 1 ? I18n.cleanup-select-all : I18n.cleanup-keep-one;
+                icon: Icons.check-circle;
+                enabled: root.has-result && !root.busy;
+                clicked => { root.select-extra(); }
+            }
+            Action { label: I18n.cleanup-clear-selection; enabled: root.has-selection && !root.busy; clicked => { root.clear-selection(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-result: EmptyState {
+            tool-key: "cleanup";
+            heading: I18n.cleanup-empty-title;
+            description: I18n.cleanup-empty-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-result: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 4px; y: 8px;
+                width: parent.width - 8px; height: parent.height - 16px;
+                for row in root.rows: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: line.preferred-height;
+                    border-radius: 8px;
+                    background: row.header ? Theme.tint : row.selected ? #fdf1e4 : transparent;
+                    if !row.header: TouchArea { mouse-cursor: pointer; clicked => { root.toggle(row.index); } }
+                    line := HorizontalLayout {
+                        padding-left: 10px; padding-right: 10px;
+                        padding-top: 7px; padding-bottom: 7px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            if !row.header: Tick { checked: row.selected; }
+                            // A heading is not a file and cannot be chosen; the
+                            // space where its box would be keeps the two kinds
+                            // of row reading as one list.
+                            if row.header: Rectangle { width: 18px; height: 18px; }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 1;
+                            // A path is clipped rather than elided: eliding cuts
+                            // at the last word boundary, and the part of a path
+                            // that differs is at its end.
+                            Text {
+                                text: row.label;
+                                color: row.header ? Theme.accent : Theme.ink;
+                                font-size: row.header ? 11px : 13px;
+                                font-weight: row.header ? 700 : 400;
+                                overflow: clip; min-width: 0px;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Text { text: row.detail; color: Theme.muted; font-size: 11px; }
+                        }
+                    }
+                }
+            }
+        }
+        if root.has-result: Text {
+            text: root.summary;
+            color: Theme.muted; font-size: 10px; wrap: word-wrap;
+            // Wrap instead of widening the card: see the page's status line.
+            min-width: 0px;
+        }
+    }
+}

@@ -91,9 +91,13 @@ pub const TOOLS: &[ToolDescriptor] = &[
         key: "cleanup",
         name: "Disk cleanup",
         subtitle: "Find duplicates and reclaim disk space.",
-        libraries: "czkawka_core",
-        capabilities: "Find duplicate, empty and large files\nDiscover similar images\nPreview and confirm before cleaning up",
-        available: false,
+        // czkawka was the plan. Its current versions need a newer Rust than
+        // this workspace pins, and the one that builds brings an audio, video
+        // and RAW-image stack for three kinds of scan that are a few hundred
+        // lines of `tools/cleanup.rs`.
+        libraries: "sha2 + trash",
+        capabilities: "Find duplicate, empty and large files\nMove only what you choose to the system trash\nPreview and confirm before anything is removed",
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Clipboard,
