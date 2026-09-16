@@ -1,0 +1,101 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "../components/action.slint";
+import { FileCard } from "../components/file_card.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { Segmented } from "../components/segmented.slint";
+import { ArchiveList } from "../components/archive_list.slint";
+import { Icons } from "../icons.slint";
+import { ArchivesState } from "../state/archives.slint";
+
+export component ArchivesPage inherits VerticalLayout {
+    in property <bool> busy;
+    in property <bool> dragging;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.archives-title; description: I18n.archives-description; badge: I18n.archives-badge; }
+    // Which direction this page is working in. Each side keeps what it had, so
+    // switching back to an archive that was read does not read it again.
+    //
+    // In a row of its own with a spacer beside it: a child of a vertical layout
+    // is given the full width across, and `horizontal-stretch: 0` only decides
+    // how leftover width is shared along a row. The spacer is what takes the
+    // rest, so the control keeps the size of its own labels.
+    HorizontalLayout {
+        Segmented {
+            options: [I18n.archives-open, I18n.archives-pack];
+            enabled: !root.busy;
+            selected <=> ArchivesState.mode;
+            changed(index) => { ArchivesState.mode-selected(index); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    FileCard {
+        filename: ArchivesState.source; detail: ArchivesState.detail;
+        busy: root.busy; converting: ArchivesState.working || ArchivesState.running; dragging: root.dragging;
+        icon: ArchivesState.mode == 0 ? Icons.archive : Icons.folder;
+        prompt: ArchivesState.mode == 0 ? I18n.archives-choose : I18n.archives-choose-folder;
+        drop-prompt: ArchivesState.mode == 0 ? I18n.archives-drop : I18n.archives-drop-folder;
+        browse-label: ArchivesState.mode == 0 ? I18n.archives-browse : I18n.archives-browse-folder;
+        change-label: ArchivesState.mode == 0 ? I18n.archives-change : I18n.archives-change-folder;
+        choose => { ArchivesState.choose(); }
+    }
+    ArchiveList {
+        vertical-stretch: 1; min-height: 200px;
+        rows: ArchivesState.rows;
+        has-rows: ArchivesState.has-rows;
+        busy: root.busy;
+        working: ArchivesState.working;
+        mode: ArchivesState.mode;
+        summary: ArchivesState.summary;
+        toggle(index) => { ArchivesState.toggle(index); }
+        tick-all => { ArchivesState.tick-all(); }
+    }
+    HorizontalLayout {
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 1;
+            Text {
+                text: ArchivesState.selection;
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap; min-width: 0px;
+            }
+        }
+        // The format is only a choice while one is being written. An archive
+        // that was opened already is whatever it already is.
+        if ArchivesState.mode == 1: VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            Segmented {
+                options: ["ZIP", "7z"];
+                enabled: ArchivesState.has-rows && !root.busy;
+                selected <=> ArchivesState.format;
+                changed => { ArchivesState.format-selected(); }
+            }
+        }
+        // While a run is going, the one button that still means anything is the
+        // one that stops it.
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if !ArchivesState.running: Action {
+                label: ArchivesState.mode == 0 ? I18n.archives-extract : I18n.archives-create;
+                icon: ArchivesState.mode == 0 ? Icons.download : Icons.archive;
+                primary: true;
+                enabled: ArchivesState.has-selection && !root.busy;
+                clicked => { ArchivesState.run(); }
+            }
+            if ArchivesState.running: Action {
+                label: I18n.archives-stop; icon: Icons.alert;
+                clicked => { ArchivesState.stop(); }
+            }
+        }
+    }
+    // A sentence of any length can only wrap here; it can never take width from
+    // a card above it.
+    Text {
+        text: ArchivesState.status;
+        color: ArchivesState.status-tone == 2 ? Theme.error : ArchivesState.status-tone == 1 ? Theme.success : Theme.muted;
+        font-size: 11px; font-weight: ArchivesState.status-tone == 0 ? 400 : 600;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.archives-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

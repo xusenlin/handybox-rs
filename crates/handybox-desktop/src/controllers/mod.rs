@@ -1,5 +1,6 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
+pub mod archives;
 pub mod cleanup;
 pub mod clipboard;
 pub mod codes;
@@ -17,7 +18,10 @@ use crate::{
 };
 use handybox_core::{
     catalog::{TOOLS, ToolDescriptor},
-    tools::{codes as core_codes, crypto as core_crypto, images as core_images, json as core_json},
+    tools::{
+        archives as core_archives, codes as core_codes, crypto as core_crypto,
+        images as core_images, json as core_json,
+    },
 };
 use i_slint_backend_winit::{EventResult, WinitWindowAccessor, winit::event::WindowEvent};
 use slint::{ComponentHandle, ModelRc, Timer, TimerMode, VecModel};
@@ -186,6 +190,7 @@ struct Tools {
     clipboard: clipboard::Controller,
     cleanup: cleanup::Controller,
     images: images::Controller,
+    archives: archives::Controller,
 }
 
 impl Tools {
@@ -199,6 +204,7 @@ impl Tools {
             clipboard: clipboard::Controller::new(ui),
             cleanup: cleanup::Controller::new(ui),
             images: images::Controller::new(ui),
+            archives: archives::Controller::new(ui),
         }
     }
 
@@ -211,6 +217,7 @@ impl Tools {
         self.clipboard.bind(shell);
         self.cleanup.bind(shell);
         self.images.bind(shell);
+        self.archives.bind(shell);
     }
 
     /// Re-render what every tool derives from its state. Only presentation
@@ -225,6 +232,7 @@ impl Tools {
         self.clipboard.refresh(language);
         self.cleanup.refresh(language);
         self.images.refresh(language);
+        self.archives.refresh(language);
     }
 
     fn handle(&self, shell: &Shell, event: Event) {
@@ -237,6 +245,7 @@ impl Tools {
             Event::Clipboard(event) => self.clipboard.handle(shell, event),
             Event::Cleanup(event) => self.cleanup.handle(shell, event),
             Event::Images(event) => self.images.handle(shell, event),
+            Event::Archives(event) => self.archives.handle(shell, event),
             Event::Finished(outcome) => shell.finish(outcome),
         }
     }
@@ -257,12 +266,15 @@ impl Tools {
     /// While one of their pages is showing, a dropped file is its input rather
     /// than something to route away.
     fn open(&self, shell: &Shell, path: PathBuf) {
-        // A folder means something to two tools now, so the page that is
-        // showing decides: the image studio lists what is in it, and Disk
-        // cleanup — which is what a folder means everywhere else — reads it.
+        // A folder means something to three tools now, so the page that is
+        // showing decides: the image studio lists the pictures in it, Archives
+        // packs it, and Disk cleanup — which is what a folder means everywhere
+        // else — reads it.
         if path.is_dir() {
             if shell.showing("images") {
                 self.images.open(shell, path);
+            } else if shell.showing("archives") {
+                self.archives.open(shell, path);
             } else {
                 self.cleanup.open(shell, path);
             }
@@ -278,6 +290,8 @@ impl Tools {
             self.diff.open(shell, path);
         } else if core_crypto::claims(&path) {
             self.crypto.open(shell, path, Some(crypto::Mode::Decrypt));
+        } else if core_archives::claims(&path) {
+            self.archives.open(shell, path);
         } else if core_codes::claims(&path) {
             self.codes.open(shell, path);
         } else if core_json::claims(&path) {

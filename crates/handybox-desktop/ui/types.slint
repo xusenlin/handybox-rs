@@ -48,6 +48,19 @@ export struct CleanupRow {
     index: int,
 }
 
+// One line of an archive: an entry that is in it, or a file that would go into
+// it. `refused` is a name this tool will not write — one that points outside the
+// folder it would be unpacked into — and such a row can never be ticked, which
+// is why it carries the flag rather than simply being left out of the list.
+export struct ArchiveRow {
+    name: string,
+    detail: string,
+    ticked: bool,
+    refused: bool,
+    directory: bool,
+    index: int,
+}
+
 // One item in the clipboard workspace. `kind` is 0 text, 1 image, 2 file
 // references; `label` is that kind in the display language. `id` is the
 // workspace's own identifier rather than a row index, because with automatic

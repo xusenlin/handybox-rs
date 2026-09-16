@@ -30,7 +30,7 @@ fn run() -> anyhow::Result<()> {
     for arg in std::env::args_os().skip(1) {
         if arg == "--help" || arg == "-h" {
             println!(
-                "HandyBox — A fast, offline-first desktop utility toolbox.\n\nUsage: handybox [file|folder]\n       handybox <original> <changed>\n\nDrop or open a document to convert it to Markdown.\nAn image opens in the barcode reader, a .json in the workbench, an .age file to be decrypted.\nA folder opens in Disk cleanup and is scanned.\nTwo paths are compared side by side in the text diff tool.\nUse SLINT_BACKEND=winit-software to force CPU rendering."
+                "HandyBox — A fast, offline-first desktop utility toolbox.\n\nUsage: handybox [file|folder]\n       handybox <original> <changed>\n\nDrop or open a document to convert it to Markdown.\nAn image opens in the barcode reader, a .json in the workbench, an .age file to be decrypted,\na .zip or .7z to be looked inside.\nA folder opens in Disk cleanup and is scanned.\nTwo paths are compared side by side in the text diff tool.\nUse SLINT_BACKEND=winit-software to force CPU rendering."
             );
             return Ok(());
         }

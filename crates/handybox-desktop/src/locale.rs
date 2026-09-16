@@ -2,8 +2,9 @@
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
     tools::{
-        cleanup::CleanupIssue, clipboard::ClipboardIssue, codes::CodesIssue, crypto::CryptoIssue,
-        diff::DiffIssue, documents::DocumentIssue, images::ImageIssue, json::JsonIssue,
+        archives::ArchiveIssue, cleanup::CleanupIssue, clipboard::ClipboardIssue,
+        codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue,
+        images::ImageIssue, json::JsonIssue,
     },
 };
 use std::path::PathBuf;
@@ -148,6 +149,7 @@ pub enum FailureKind {
     Clipboard(ClipboardIssue),
     Cleanup(CleanupIssue),
     Image(ImageIssue),
+    Archive(ArchiveIssue),
     /// The OS clipboard could not be reached at all — which any tool can run
     /// into, because every one of them can copy its result.
     ClipboardAccess,
@@ -238,6 +240,16 @@ impl Failure {
                 .downcast_ref::<ImageIssue>()
                 .copied()
                 .map(FailureKind::Image),
+            error,
+        )
+    }
+
+    pub fn archive(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<ArchiveIssue>()
+                .copied()
+                .map(FailureKind::Archive),
             error,
         )
     }
@@ -409,6 +421,27 @@ impl Failure {
                 ImageIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
+            FailureKind::Archive(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Archive(issue) => match issue {
+                ArchiveIssue::InputMissing => "找不到输入文件。",
+                ArchiveIssue::Read => "无法读取文件，请检查访问权限。",
+                ArchiveIssue::NotFile => "请选择文件，而不是文件夹。",
+                ArchiveIssue::NotFolder => "请选择文件夹，而不是文件。",
+                ArchiveIssue::TooLarge => "压缩包超过 2 GiB，请选择更小的文件。",
+                ArchiveIssue::NotArchive => "该文件不是 ZIP 或 7z 压缩包。",
+                ArchiveIssue::Encrypted => "该压缩包有密码保护，当前版本无法打开。",
+                ArchiveIssue::Unsupported => "该压缩包使用了当前版本不支持的压缩算法。",
+                ArchiveIssue::Damaged => "该压缩包已损坏或不完整。",
+                ArchiveIssue::Empty => "这里没有可压缩的内容。",
+                ArchiveIssue::NothingSelected => "还没有选中任何内容。",
+                ArchiveIssue::Expanded => "解压后将超过 16 GiB，请分批解压。",
+                ArchiveIssue::InvalidExtension => "文件名的扩展名必须与所选格式一致。",
+                ArchiveIssue::SourceOverwrite => "不能把压缩包写进正在压缩的文件夹里。",
+                ArchiveIssue::CreateOutput => "无法在目标目录创建文件。",
+                ArchiveIssue::WriteOutput => "写入压缩包失败。",
+                ArchiveIssue::SaveOutput => "无法保存到目标文件。",
+            }
+            .into(),
             FailureKind::ClipboardAccess => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -454,6 +487,9 @@ pub enum Message {
     Removing,
     Opening,
     Exporting,
+    Inspecting,
+    Unpacking,
+    Packing,
     KeyGenerated,
     Copied,
     Collected,
@@ -477,6 +513,32 @@ pub enum Message {
         files: usize,
         freed: u64,
         skipped: usize,
+    },
+    /// What came out of an archive. Skipped names were already there and
+    /// refused ones would not have stayed inside the folder: neither is a
+    /// failure, and both are worth saying out loud.
+    Unpacked {
+        files: usize,
+        folders: usize,
+        bytes: u64,
+        skipped: usize,
+        /// The first name that was already there. Named rather than only
+        /// counted: a file that was skipped is a file that exists, and the path
+        /// is what says where to look for it.
+        skipped_name: Option<String>,
+        refused: usize,
+        failed: usize,
+        cancelled: bool,
+        into: PathBuf,
+    },
+    /// What went into a new archive, and what it cost.
+    Packed {
+        files: usize,
+        size: u64,
+        packed: u64,
+        failed: usize,
+        cancelled: bool,
+        path: PathBuf,
     },
     NothingFound,
     NoPictures,
@@ -508,6 +570,8 @@ impl Message {
                 | Self::Unwatched
                 | Self::Trashed { .. }
                 | Self::Exported { .. }
+                | Self::Unpacked { .. }
+                | Self::Packed { .. }
                 | Self::NothingFound
                 | Self::NoPictures
                 | Self::Error(_)
@@ -515,12 +579,17 @@ impl Message {
     }
 
     pub fn is_long_notice(&self) -> bool {
-        matches!(self, Self::Exported { .. })
+        matches!(
+            self,
+            Self::Exported { .. } | Self::Unpacked { .. } | Self::Packed { .. }
+        )
     }
 
     pub fn is_error_notice(&self) -> bool {
         matches!(self, Self::Error(_))
             || matches!(self, Self::Exported { failed, .. } if *failed > 0)
+            || matches!(self, Self::Unpacked { failed, refused, .. } if *failed > 0 || *refused > 0)
+            || matches!(self, Self::Packed { failed, .. } if *failed > 0)
     }
 
     pub fn render(&self, lang: Language) -> String {
@@ -554,6 +623,12 @@ impl Message {
                 "请选择导出到哪个文件夹…",
             ),
             Self::Removing => lang.text("Moving to the trash…", "正在移到回收站…"),
+            Self::Inspecting => lang.text(
+                "Reading the archive locally…",
+                "正在本地读取压缩包…",
+            ),
+            Self::Unpacking => lang.text("Unpacking locally…", "正在本地解压…"),
+            Self::Packing => lang.text("Packing locally…", "正在本地压缩…"),
             Self::NoPictures => lang.text(
                 "No pictures in this folder. Only the folder itself is read.",
                 "这个文件夹里没有图片。只读取该文件夹本身。",
@@ -707,6 +782,131 @@ impl Message {
                         "个在扫描后发生了变化的文件。"
                     )
                 );
+            }
+            Self::Unpacked {
+                files,
+                folders,
+                bytes,
+                skipped,
+                skipped_name,
+                refused,
+                failed,
+                cancelled,
+                into,
+            } => {
+                let mut counts = vec![format!(
+                    "{} {} {}",
+                    lang.text("Unpacked", "已解压"),
+                    files,
+                    if *files == 1 {
+                        lang.text("file", "个文件")
+                    } else {
+                        lang.text("files", "个文件")
+                    }
+                )];
+                if *folders > 0 {
+                    counts.push(format!(
+                        "{} {} {}",
+                        lang.text("and", "以及"),
+                        folders,
+                        lang.text("folders", "个目录")
+                    ));
+                }
+                if *bytes > 0 {
+                    counts.push(format!("({})", size(*bytes)));
+                }
+                let mut line = counts.join(" ");
+                line.push_str(&format!(
+                    "\n{} {}",
+                    lang.text("Into", "位置"),
+                    into.display()
+                ));
+                let mut notes = Vec::new();
+                if *skipped > 0 {
+                    // Named, not only counted. "Skipped one" reads as a failure;
+                    // the path reads as what it is — the file is already there,
+                    // usually in a folder of its own name beside the archive.
+                    let which = match skipped_name {
+                        Some(name) if *skipped == 1 => format!("{}{name}", lang.text(": ", "：")),
+                        Some(name) => format!("{}{name}", lang.text(", such as ", "，例如 ")),
+                        None => String::new(),
+                    };
+                    notes.push(format!(
+                        "{} {} {}{which}",
+                        lang.text("skipped", "跳过"),
+                        skipped,
+                        lang.text("already there", "个已存在的同名文件")
+                    ));
+                }
+                // The one number worth reading twice: those entries pointed
+                // outside the folder that was chosen.
+                if *refused > 0 {
+                    notes.push(format!(
+                        "{} {} {}",
+                        lang.text("refused", "拒绝"),
+                        refused,
+                        lang.text("unsafe names", "个不安全的路径")
+                    ));
+                }
+                if *failed > 0 {
+                    notes.push(format!(
+                        "{} {}",
+                        lang.text("failed", "失败"),
+                        failed
+                    ));
+                }
+                if *cancelled {
+                    notes.push(lang.text("stopped", "已停止").to_owned());
+                }
+                if !notes.is_empty() {
+                    line.push_str(&format!("  ·  {}", notes.join("  ·  ")));
+                }
+                return line;
+            }
+            Self::Packed {
+                files,
+                size: total,
+                packed,
+                failed,
+                cancelled,
+                path,
+            } => {
+                let mut line = format!(
+                    "{} {} {} {} {}",
+                    lang.text("Packed", "已压缩"),
+                    files,
+                    if *files == 1 {
+                        lang.text("file into", "个文件到")
+                    } else {
+                        lang.text("files into", "个文件到")
+                    },
+                    path.file_name().unwrap_or_default().to_string_lossy(),
+                    if *packed < *total && *total > 0 {
+                        format!(
+                            "\n{} → {}{}{} {:.0}%{}",
+                            size(*total),
+                            size(*packed),
+                            lang.text(" (", "（"),
+                            lang.text("down", "减少"),
+                            (total - packed) as f64 * 100.0 / *total as f64,
+                            lang.text(")", "）")
+                        )
+                    } else {
+                        format!("\n{}", size(*packed))
+                    }
+                );
+                if *failed > 0 {
+                    line.push_str(&format!(
+                        "  ·  {} {} {}",
+                        lang.text("left out", "遗漏"),
+                        failed,
+                        lang.text("that could not be read", "个无法读取的文件")
+                    ));
+                }
+                if *cancelled {
+                    line.push_str(&format!("  ·  {}", lang.text("stopped", "已停止")));
+                }
+                return line;
             }
             Self::Saved(path) => {
                 return format!("{} {}", lang.text("Saved to", "已保存到"), path.display());
@@ -869,6 +1069,103 @@ mod tests {
         assert!(english.contains("2.0 MiB") && english.contains("Skipped 1"));
         let chinese = notice.render(Language::Chinese);
         assert!(chinese.contains("3 个文件移到回收站") && chinese.contains("已跳过 1"));
+    }
+
+    #[test]
+    fn archive_failures_and_notices_say_what_was_written_and_what_was_not() {
+        // What an archive can refuse is not what a file can: the two that
+        // matter are a password nobody here can supply, and a size that would
+        // be a decompression bomb if it were honest.
+        let locked = Failure::archive(anyhow::anyhow!(ArchiveIssue::Encrypted));
+        assert!(!locked.about_input());
+        assert!(locked.render(Language::English).contains("password"));
+        assert!(locked.render(Language::Chinese).contains("密码"));
+        let bomb = Failure::archive(anyhow::anyhow!(ArchiveIssue::Expanded));
+        assert!(bomb.render(Language::English).contains("16 GiB"));
+        assert!(bomb.render(Language::Chinese).contains("16 GiB"));
+        // The library's own diagnostic is kept as the cause, in either language.
+        let detail = Failure::archive(
+            anyhow::anyhow!("invalid central directory").context(ArchiveIssue::Damaged),
+        );
+        assert!(
+            detail
+                .render(Language::Chinese)
+                .contains("invalid central directory")
+        );
+
+        // A refused name is the number worth reading twice, and it is what
+        // makes the notice an error rather than a report.
+        let unpacked = Message::Unpacked {
+            files: 12,
+            folders: 3,
+            bytes: 2 * 1024 * 1024,
+            skipped: 2,
+            skipped_name: Some("dingdian/说明.md".to_owned()),
+            refused: 1,
+            failed: 0,
+            cancelled: false,
+            into: PathBuf::from("/tmp/out"),
+        };
+        assert!(unpacked.is_notice() && unpacked.is_long_notice());
+        assert!(unpacked.is_error_notice());
+        let english = unpacked.render(Language::English);
+        assert!(english.contains("Unpacked 12 files"), "{english}");
+        assert!(english.contains("2.0 MiB") && english.contains("/tmp/out"));
+        assert!(english.contains("skipped 2") && english.contains("refused 1"));
+        let chinese = unpacked.render(Language::Chinese);
+        assert!(chinese.contains("已解压 12 个文件") && chinese.contains("拒绝 1"));
+        // A file that was skipped is a file that is already there, so the
+        // notice says which one rather than only how many: a count on its own
+        // reads as "it did not work".
+        assert!(english.contains("such as dingdian/说明.md"), "{english}");
+        assert!(chinese.contains("例如 dingdian/说明.md"), "{chinese}");
+        let one = Message::Unpacked {
+            files: 0,
+            folders: 0,
+            bytes: 0,
+            skipped: 1,
+            skipped_name: Some("dingdian/说明.md".to_owned()),
+            refused: 0,
+            failed: 0,
+            cancelled: false,
+            into: PathBuf::from("/tmp/out"),
+        };
+        assert!(
+            one.render(Language::Chinese)
+                .contains("跳过 1 个已存在的同名文件：dingdian/说明.md"),
+            "{}",
+            one.render(Language::Chinese)
+        );
+        assert!(
+            one.render(Language::English)
+                .contains("skipped 1 already there: dingdian/说明.md")
+        );
+
+        // Packing reports what it cost, and nothing that went wrong unless
+        // something did.
+        let packed = Message::Packed {
+            files: 4,
+            size: 10 * 1024 * 1024,
+            packed: 4 * 1024 * 1024,
+            failed: 0,
+            cancelled: false,
+            path: PathBuf::from("/tmp/项目.zip"),
+        };
+        assert!(!packed.is_error_notice());
+        let english = packed.render(Language::English);
+        assert!(
+            english.contains("Packed 4 files into 项目.zip"),
+            "{english}"
+        );
+        assert!(
+            english.contains("10.0 MiB → 4.0 MiB (down 60%)"),
+            "{english}"
+        );
+        assert!(
+            packed
+                .render(Language::Chinese)
+                .contains("10.0 MiB → 4.0 MiB（减少 60%）")
+        );
     }
 
     #[test]

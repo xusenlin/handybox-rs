@@ -214,6 +214,37 @@ export global I18n {
     out property <string> cleanup-empty-title: chinese ? "先看看里面有什么" : "Start by looking";
     out property <string> cleanup-empty-hint: chinese ? "扫描结果会显示在这里，逐条勾选后才会动文件。\n选择一个文件夹，扫描会自动开始。" : "What the scan finds appears here, and nothing moves until you tick it.\nChoose a folder, and the scan starts on its own.";
     out property <string> cleanup-footnote: chinese ? "全部在本机扫描  ·  单次最多 20 万个文件 / 读取 16 GiB / 60 秒  ·  重复只按内容判断  ·  跳过 .git 等版本库与系统目录  ·  不跟随符号链接  ·  删除即移入系统回收站，可还原" : "Scanned on your device  ·  Up to 200,000 files, 16 GiB read and 60 seconds per scan  ·  Duplicates are decided by content alone  ·  Version control and system folders are skipped  ·  Links are never followed  ·  What goes, goes to the system trash and can be put back";
+    // Archives. Format names are what is printed on every other tool's menu and
+    // stay as they are; everything about what happens to the files is
+    // translated. The wording keeps saying what is not touched, because
+    // unpacking into a folder you already work in is where surprises live.
+    out property <string> archives-title: chinese ? "压缩与解压" : "Archives";
+    out property <string> archives-description: chinese ? "看清压缩包里有什么，取出需要的部分，或者把一个文件夹打包起来。" : "See what is inside an archive, take out the parts you need, or pack a folder into one.";
+    out property <string> archives-badge: chinese ? "ZIP 与 7z" : "ZIP AND 7Z";
+    out property <string> archives-open: chinese ? "打开压缩包" : "Open an archive";
+    out property <string> archives-pack: chinese ? "新建压缩包" : "Create one";
+    out property <string> archives-choose: chinese ? "选择压缩包，或把它拖到这里" : "Choose an archive or drop one here";
+    out property <string> archives-drop: chinese ? "松开以读取该压缩包" : "Drop to read this archive";
+    out property <string> archives-browse: chinese ? "选择压缩包" : "Browse archives";
+    out property <string> archives-change: chinese ? "更换压缩包" : "Change archive";
+    out property <string> archives-choose-folder: chinese ? "选择要压缩的文件夹，或把文件夹拖到这里" : "Choose a folder to pack, or drop one here";
+    out property <string> archives-drop-folder: chinese ? "松开以列出其中的文件" : "Drop to list what is in it";
+    out property <string> archives-browse-folder: chinese ? "选择文件夹" : "Choose folder";
+    out property <string> archives-change-folder: chinese ? "更换文件夹" : "Change folder";
+    out property <string> archives-contents: chinese ? "压缩包内容" : "Contents";
+    out property <string> archives-contents-caption: chinese ? " / 勾选要解压的内容" : " / tick what to extract";
+    out property <string> archives-going-in: chinese ? "将被打包" : "Going in";
+    out property <string> archives-going-in-caption: chinese ? " / 勾选要打包的内容" : " / tick what to pack";
+    out property <string> archives-reading: chinese ? " / 正在读取…" : " / Reading…";
+    out property <string> archives-tick-all: chinese ? "全选 / 全不选" : "Tick all";
+    out property <string> archives-extract: chinese ? "解压勾选…" : "Extract ticked…";
+    out property <string> archives-create: chinese ? "创建压缩包…" : "Create archive…";
+    out property <string> archives-stop: chinese ? "停止" : "Stop";
+    out property <string> archives-empty-title: chinese ? "先看看里面有什么" : "Start by looking inside";
+    out property <string> archives-empty-hint: chinese ? "压缩包里的内容会逐条列在这里，勾选后才会解压。\n选择一个 ZIP 或 7z 文件，读取会自动开始。" : "Everything the archive holds is listed here, and nothing is unpacked until you tick it.\nChoose a ZIP or 7z file, and the reading starts on its own.";
+    out property <string> archives-pack-empty-title: chinese ? "先选一个文件夹" : "Start with a folder";
+    out property <string> archives-pack-empty-hint: chinese ? "文件夹里的文件会列在这里，勾选要打包的内容。\n压缩包里会保留这个文件夹本身，解压后依然是一个完整的文件夹。" : "The files in it are listed here: tick the ones to pack.\nThe folder's own name leads every entry, so unpacking gives the folder back whole.";
+    out property <string> archives-footnote: chinese ? "所有处理均在本机完成  ·  单个压缩包最大 2 GiB / 20000 条目  ·  单次解压最多写入 16 GiB  ·  越界路径与符号链接一律拒绝  ·  从不覆盖已有文件  ·  暂不支持带密码的压缩包" : "Processed on your device  ·  Up to 2 GiB and 20,000 entries per archive  ·  One extraction writes at most 16 GiB  ·  Names that point outside the folder, and links, are refused  ·  Nothing is ever replaced  ·  Password-protected archives are not supported";
     out property <string> planned: chinese ? "开发计划" : "PLANNED";
     out property <string> planned-title: chinese ? "新工具正在准备中" : "A new tool is taking shape";
     out property <string> planned-hint: chinese ? "已有多个工具可以使用。\n此工具尚未实现，以下为计划支持的能力。" : "Several tools are ready today.\nThis tool is not implemented yet. Here is what is planned.";

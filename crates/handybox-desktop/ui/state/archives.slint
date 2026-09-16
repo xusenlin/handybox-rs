@@ -1,0 +1,43 @@
+import { ArchiveRow } from "../types.slint";
+
+// Everything the Archives tool owns.
+//
+// One list serves both directions: what is inside an archive, or what would go
+// into one. The rows say which by what they carry, and the page relabels around
+// them, because a second list would be the same list with different words on it.
+export global ArchivesState {
+    /// 0 open an archive, 1 pack a folder. In-out because the control writes it,
+    /// and Rust writes it back when a side is restored.
+    in-out property <int> mode;
+    /// The archive that was opened, or the folder that would be packed.
+    in property <string> source;
+    in property <string> detail;
+    /// Reading a table of contents or a folder. Never a native dialog: there is
+    /// no progress to show while someone is choosing.
+    in property <bool> working;
+    /// A run that has actually started — which is only after a destination was
+    /// chosen, not while the dialog asking for one is open.
+    in property <bool> running;
+    in property <[ArchiveRow]> rows;
+    in property <bool> has-rows;
+    in property <string> summary;
+    /// What is ticked, or where a run has got to.
+    in property <string> selection;
+    in property <bool> has-selection;
+    /// 0 ZIP, 1 7z. What a new archive is written as; an archive being read
+    /// says what it already is.
+    in-out property <int> format;
+    in property <string> status;
+    // 0 neutral, 1 nothing has been touched, 2 something needs reading twice.
+    in property <int> status-tone;
+    callback choose();
+    callback mode-selected(int);
+    callback toggle(int);
+    /// Tick everything, or clear it when everything already is.
+    callback tick-all();
+    callback format-selected();
+    /// Extract what is ticked, or pack it.
+    callback run();
+    /// Stop between entries.
+    callback stop();
+}

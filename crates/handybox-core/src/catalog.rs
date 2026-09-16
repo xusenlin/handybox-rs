@@ -75,7 +75,7 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "Pack, inspect and unpack your files.",
         libraries: "zip + sevenz-rust2",
         capabilities: "Create and extract ZIP / 7z archives\nPreview archive contents\nValidate paths and limit extraction size",
-        available: false,
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Codes,

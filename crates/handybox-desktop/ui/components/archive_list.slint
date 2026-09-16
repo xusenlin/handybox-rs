@@ -1,0 +1,122 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { ArchiveRow } from "../types.slint";
+
+// A box that is ticked, rather than a switch that is thrown: a row is one of
+// many, and many switches read as many settings.
+component Tick inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> refused;
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: root.refused ? Theme.error : root.checked ? Theme.accent : #c3ccd4;
+    background: root.checked ? Theme.accent : Theme.surface;
+    if root.checked: Icon { source: Icons.check-circle; ink: white; x: 2px; y: 2px; width: 14px; height: 14px; }
+    // A name this tool will not write has no box to tick, and says so with the
+    // same mark the row's own note uses.
+    if root.refused: Icon { source: Icons.alert; ink: Theme.error; x: 2px; y: 2px; width: 14px; height: 14px; }
+}
+
+// What is inside an archive, or what would go into one. Ticking a row only says
+// which entries the button below acts on; nothing here writes anything.
+//
+// Like CodeView, the `for` is the direct child of the ListView, which is what
+// compiles it into a virtualized repeater.
+export component ArchiveList inherits Rectangle {
+    in property <[ArchiveRow]> rows;
+    in property <bool> has-rows;
+    in property <bool> busy;
+    in property <bool> working;
+    /// 0 the contents of an archive, 1 what a new one would hold.
+    in property <int> mode;
+    in property <string> summary;
+    callback toggle(int);
+    callback tick-all();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.archive; ink: Theme.accent; width: 18px; }
+            Text {
+                text: root.mode == 0 ? I18n.archives-contents : I18n.archives-going-in;
+                font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center;
+            }
+            Text {
+                text: root.working ? I18n.archives-reading : root.mode == 0 ? I18n.archives-contents-caption : I18n.archives-going-in-caption;
+                font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px;
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Action { label: I18n.archives-tick-all; icon: Icons.check-circle; enabled: root.has-rows && !root.busy; clicked => { root.tick-all(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-rows: EmptyState {
+            tool-key: "archives";
+            heading: root.mode == 0 ? I18n.archives-empty-title : I18n.archives-pack-empty-title;
+            description: root.mode == 0 ? I18n.archives-empty-hint : I18n.archives-pack-empty-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-rows: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 4px; y: 8px;
+                width: parent.width - 8px; height: parent.height - 16px;
+                for row in root.rows: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: line.preferred-height;
+                    border-radius: 8px;
+                    background: row.refused ? Theme.removed : row.ticked ? #fdf1e4 : transparent;
+                    if !row.refused: TouchArea { enabled: !root.busy; mouse-cursor: pointer; clicked => { root.toggle(row.index); } }
+                    line := HorizontalLayout {
+                        padding-left: 10px; padding-right: 10px;
+                        padding-top: 7px; padding-bottom: 7px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Tick { checked: row.ticked && !row.refused; refused: row.refused; }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Icon {
+                                source: row.directory ? Icons.folder : Icons.document;
+                                ink: Theme.muted; width: 15px; height: 15px;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 1;
+                            // A name is clipped rather than elided: eliding cuts
+                            // at the last word boundary, and the part of a path
+                            // that differs is at its end.
+                            Text {
+                                text: row.name;
+                                color: row.refused ? Theme.error : Theme.ink;
+                                font-size: 13px;
+                                overflow: clip; min-width: 0px;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Text {
+                                text: row.detail;
+                                color: row.refused ? Theme.error : Theme.muted;
+                                font-size: 11px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if root.has-rows: Text {
+            text: root.summary;
+            color: Theme.muted; font-size: 10px; wrap: word-wrap;
+            // Wrap instead of widening the card: see the page's status line.
+            min-width: 0px;
+        }
+    }
+}

@@ -2589,6 +2589,7 @@ dependencies = [
  "age",
  "anydoc",
  "anyhow",
+ "encoding_rs",
  "fast_image_resize",
  "image",
  "jaq-core",
@@ -2598,6 +2599,7 @@ dependencies = [
  "oxipng",
  "rxing",
  "serde_json",
+ "sevenz-rust2",
  "sha2 0.10.9",
  "similar",
  "tempfile",
@@ -3857,6 +3859,15 @@ checksum = "5c463f9c428b7fc5ec885dcd39ce4aa61e29111d0e33483f6f98c74e89d8621e"
 dependencies = [
  "lyon_geom",
  "num-traits",
+]
+
+[[package]]
+name = "lzma-rust2"
+version = "0.16.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca93e534d1142d1d0dcca6d25fe302508a5dfb40b302802904577725ea0b695b"
+dependencies = [
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -5719,6 +5730,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf41e0cfaf7226dca15e8197172c295a782857fcb97fad1808a166870dee75a3"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "sevenz-rust2"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29225600349ef74beda5a9fffb36ac660a24613c0bde9315d0c49be1d51e9c24"
+dependencies = [
+ "crc32fast",
+ "js-sys",
+ "lzma-rust2",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -7985,6 +8008,7 @@ dependencies = [
  "crc32fast",
  "flate2",
  "indexmap",
+ "lzma-rust2",
  "memchr",
  "typed-path",
  "zopfli",
