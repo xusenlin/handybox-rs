@@ -348,6 +348,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "approx"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cab112f0a86d568ea0e627cc1d6be74a1e9cd55214684db5561995f6dad897c6"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1702,6 +1711,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "document-features"
+version = "0.2.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
+dependencies = [
+ "litrs",
+]
+
+[[package]]
 name = "downcast-rs"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1964,6 +1982,20 @@ dependencies = [
  "rayon-core",
  "smallvec",
  "zune-inflate",
+]
+
+[[package]]
+name = "fast_image_resize"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9c50201dc184ba6553da1695aac20a042efffbe2d84542cee31917c86c3ab1e"
+dependencies = [
+ "bytemuck",
+ "cfg-if",
+ "document-features",
+ "image",
+ "num-traits",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -2346,6 +2378,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "geo-types"
+version = "0.7.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "777d18aa0f12f8b285331cd867133ee14422b3f023f6d388034c47d43e28786a"
+dependencies = [
+ "approx",
+ "num-traits",
+ "serde",
+ "thiserror 2.0.20",
+]
+
+[[package]]
 name = "gethostname"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2545,10 +2589,13 @@ dependencies = [
  "age",
  "anydoc",
  "anyhow",
+ "fast_image_resize",
  "image",
  "jaq-core",
  "jaq-json",
  "jaq-std",
+ "nom-exif",
+ "oxipng",
  "rxing",
  "serde_json",
  "sha2 0.10.9",
@@ -3209,6 +3256,7 @@ checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
+ "rayon",
 ]
 
 [[package]]
@@ -3310,6 +3358,16 @@ name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
+name = "iso6709parse"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5090db9c6a716d1f4eeb729957e889e9c28156061c825cbccd44950cf0f3c66"
+dependencies = [
+ "geo-types",
+ "nom 7.1.3",
+]
 
 [[package]]
 name = "itertools"
@@ -3581,6 +3639,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
+name = "libdeflate-sys"
+version = "1.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6949d73714ba8c32d2757405b89c94e427f64f078a4041debe07e1b8e9e850e9"
+dependencies = [
+ "cc",
+]
+
+[[package]]
+name = "libdeflater"
+version = "1.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b72b274104f747cb65358c918e38c6cd4a69937937a36c8ad3cfd516c9c471e"
+dependencies = [
+ "libdeflate-sys",
+]
+
+[[package]]
 name = "libfuzzer-sys"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3675,6 +3751,12 @@ name = "litemap"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
+
+[[package]]
+name = "litrs"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11d3d7f243d5c5a8b9bb5d6dd2b1602c0cb0b9db1621bafc7ed66e35ff9fe092"
 
 [[package]]
 name = "lock_api"
@@ -4005,6 +4087,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "nom-exif"
+version = "3.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3217a90c724aa7c99f53b2fc7eec37b63e3e9aa1801ebe031dee75234d9c8339"
+dependencies = [
+ "bytes",
+ "chrono",
+ "iso6709parse",
+ "nom 8.0.0",
+ "regex",
+ "thiserror 2.0.20",
+ "tracing",
 ]
 
 [[package]]
@@ -4575,6 +4672,20 @@ checksum = "9aa2b01e1d916879f73a53d01d1d6cee68adbb31d6d9177a8cfce093cced1d50"
 dependencies = [
  "futures-core",
  "pin-project-lite",
+]
+
+[[package]]
+name = "oxipng"
+version = "10.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52a88e3e5c2ad82e691b219e2b45a90eb5a51d26a434c7e191563e957a48e07a"
+dependencies = [
+ "indexmap",
+ "libdeflater",
+ "log",
+ "rayon",
+ "rgb",
+ "rustc-hash 2.1.3",
 ]
 
 [[package]]

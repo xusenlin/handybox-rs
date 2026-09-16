@@ -11,6 +11,7 @@ fn routes_are_unique_and_only_implemented_tools_are_available() {
         ToolId::Codes,
         ToolId::Clipboard,
         ToolId::Cleanup,
+        ToolId::Images,
     ];
     let mut keys = HashSet::new();
     for tool in TOOLS {

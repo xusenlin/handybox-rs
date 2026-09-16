@@ -155,6 +155,40 @@ export global I18n {
     out property <string> clipboard-none-title: chinese ? "看看里面是什么" : "A closer look";
     out property <string> clipboard-none-hint: chinese ? "选中左侧的一条内容，这里会显示它的全文、文件路径或图片。" : "Choose an item on the left to see the whole text, the paths it stands for, or the picture itself.";
     out property <string> clipboard-footnote: chinese ? "所有内容仅保存在内存中  ·  关闭窗口即清空  ·  自动收集默认关闭，且不会写入磁盘  ·  最多保留 60 条 / 128 MiB" : "Held in memory only  ·  Emptied when the window closes  ·  Automatic collecting is off by default and nothing is written to disk  ·  Up to 60 items and 128 MiB";
+    // Image studio. Format names are printed on specifications and stay as they
+    // are; everything about what happens to the picture is translated.
+    out property <string> images-title: chinese ? "图像处理" : "Image studio";
+    out property <string> images-description: chinese ? "查看一张图片的真实信息，然后换个格式或尺寸写出来。" : "See what a picture really is, then write it back at another size or format.";
+    out property <string> images-badge: chinese ? "转换与缩放" : "CONVERT AND RESIZE";
+    out property <string> images-choose: chinese ? "选择文件夹，或把文件夹拖到这里" : "Choose a folder of pictures or drop one here";
+    out property <string> images-drop: chinese ? "松开以列出其中的图片" : "Drop to list the pictures in it";
+    out property <string> images-browse: chinese ? "选择文件夹" : "Choose folder";
+    out property <string> images-change: chinese ? "更换文件夹" : "Change folder";
+    out property <string> images-folder: chinese ? "图片列表" : "Pictures";
+    out property <string> images-folder-caption: chinese ? " / 勾选要导出的，点击查看" : " / tick to export, click to look";
+    out property <string> images-reading: chinese ? " / 正在读取…" : " / Reading…";
+    out property <string> images-tick-all: chinese ? "全选 / 全不选" : "Tick all";
+    out property <string> images-stop: chinese ? "停止" : "Stop";
+    out property <string> images-loading: chinese ? "正在生成预览…" : "Preparing preview…";
+    out property <string> images-preview-unavailable: chinese ? "无法预览这张图片" : "Preview unavailable";
+    out property <string> images-list-hint: chinese ? "点击查看 · 勾选后批量导出" : "Click to preview · tick to export";
+    out property <string> images-preview: chinese ? "预览" : "Preview";
+    out property <string> images-details: chinese ? "图片信息" : "Image details";
+    out property <string> images-details-caption: chinese ? " / 来自文件本身" : " / from the file itself";
+    out property <string> images-width: chinese ? "输出宽度" : "Output width";
+    out property <string> images-width-placeholder: chinese ? "宽度（像素），留空保持原始尺寸" : "Width in pixels — leave empty to keep the original size";
+    out property <string> images-quality-low: chinese ? "较小" : "Smaller";
+    out property <string> images-quality-mid: chinese ? "均衡" : "Balanced";
+    out property <string> images-quality-high: chinese ? "较好" : "Better";
+    out property <string> images-optimize: chinese ? "无损优化" : "Optimize";
+    out property <string> images-export: chinese ? "导出勾选…" : "Export ticked…";
+    out property <string> images-empty-title: chinese ? "先选一个文件夹" : "Start with a folder";
+    out property <string> images-empty-hint: chinese ? "文件夹里的图片会列在这里，勾选要处理的，点击其中一张查看。\n只读取该文件夹本身，不会进入子文件夹。" : "The pictures in it are listed here: tick the ones to work on, click one to look at it.\nOnly the folder itself is read, never what is inside its subfolders.";
+    out property <string> images-none-title: chinese ? "这张图片没有留下记录" : "This picture says nothing";
+    out property <string> images-none-hint: chinese ? "它不含 EXIF——多数编辑过、截图得到或被平台处理过的图片都是这样。尺寸、格式与颜色仍显示在左侧。" : "It carries no EXIF, which is true of most pictures that were edited, screenshotted or passed through a platform. Its size, format and colour are on the left.";
+    out property <string> images-no-exif: chinese ? "此图片不含 EXIF 信息。" : "No EXIF metadata in this image.";
+    out property <string> images-exif-note: chinese ? "这些信息来自原文件；导出的图片不会带上它们。" : "This comes from the original file. What you export carries none of it.";
+    out property <string> images-footnote: chinese ? "本机处理 · 单张最大 64 MiB / 5000 万像素 · 导出不含 EXIF，不覆盖已有文件" : "Processed locally · Up to 64 MiB / 50 megapixels · Exports omit EXIF and never replace existing files";
     // Disk cleanup. The only tool here that changes files, so its wording says
     // what will happen before it happens, and never calls removal "cleaning".
     out property <string> cleanup-title: chinese ? "磁盘清理" : "Disk cleanup";

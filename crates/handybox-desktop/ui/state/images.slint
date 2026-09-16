@@ -1,0 +1,54 @@
+import { DetailRow, ImageRow } from "../types.slint";
+
+// Everything the Image studio owns.
+//
+// The controls are in-out: the page writes them as they are used, and Rust
+// writes them back when a picture is opened. They are read into the recipe
+// before a batch is exported.
+export global ImagesState {
+    in property <string> folder;
+    in property <string> detail;
+    /// Every picture in that folder, by name.
+    in property <[ImageRow]> rows;
+    in property <bool> has-folder;
+    in property <string> summary;
+    /// What is ticked, or where a batch has got to.
+    in property <string> selection;
+    in property <bool> has-selection;
+    /// Reading a folder or opening a picture. Never a native
+    /// dialog: there is no progress to show while someone is choosing.
+    in property <bool> working;
+    /// A batch that has actually started — which is only after a destination
+    /// folder was chosen, not while the dialog asking for one is open.
+    in property <bool> exporting;
+    in property <bool> has-picture;
+    in property <image> preview;
+    in property <string> filename;
+    in property <[DetailRow]> facts;
+    in property <[DetailRow]> details;
+    in property <bool> has-details;
+    /// 0 PNG, 1 JPEG, 2 TIFF, 3 BMP.
+    in-out property <int> format;
+    /// Empty means the picture's own width, which is what converting alone is.
+    in-out property <string> width;
+    /// 0 lower, 1 balanced, 2 higher. JPEG only.
+    in-out property <int> quality;
+    /// PNG only: run the lossless optimizer over the encoded bytes.
+    in-out property <bool> optimize;
+    /// Whether the chosen format keeps every pixel, which is what decides
+    /// between a quality to choose and an optimizer to run.
+    in property <bool> lossless: true;
+    in property <string> status;
+    callback choose();
+    /// Put one of the folder's pictures on screen. Not the same act as ticking
+    /// it, and deliberately not bound to it.
+    callback show(int);
+    callback toggle(int);
+    /// Tick everything, or clear it when everything already is.
+    callback tick-all();
+    /// Stop a batch between pictures.
+    callback stop();
+    /// A control moved: keep the export recipe in sync with the page.
+    callback settings-changed();
+    callback export();
+}

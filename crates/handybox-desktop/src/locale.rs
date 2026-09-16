@@ -3,7 +3,7 @@ use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
     tools::{
         cleanup::CleanupIssue, clipboard::ClipboardIssue, codes::CodesIssue, crypto::CryptoIssue,
-        diff::DiffIssue, documents::DocumentIssue, json::JsonIssue,
+        diff::DiffIssue, documents::DocumentIssue, images::ImageIssue, json::JsonIssue,
     },
 };
 use std::path::PathBuf;
@@ -85,7 +85,7 @@ pub fn tool_text(
         ToolId::Images => (
             "图像处理",
             "在本地缩放、转换和查看图片。",
-            "图像格式转换与批量缩放\nPNG 无损优化\nEXIF 元数据查看",
+            "PNG / JPEG / TIFF / BMP 互转\n高质量缩放\nPNG 无损优化与 EXIF 查看",
         ),
         ToolId::Archives => (
             "压缩与解压",
@@ -147,6 +147,7 @@ pub enum FailureKind {
     Codes(CodesIssue),
     Clipboard(ClipboardIssue),
     Cleanup(CleanupIssue),
+    Image(ImageIssue),
     /// The OS clipboard could not be reached at all — which any tool can run
     /// into, because every one of them can copy its result.
     ClipboardAccess,
@@ -227,6 +228,16 @@ impl Failure {
                 .downcast_ref::<CleanupIssue>()
                 .copied()
                 .map(FailureKind::Cleanup),
+            error,
+        )
+    }
+
+    pub fn image(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<ImageIssue>()
+                .copied()
+                .map(FailureKind::Image),
             error,
         )
     }
@@ -379,6 +390,25 @@ impl Failure {
                 CleanupIssue::Outside => "该文件已不在本次扫描的文件夹内。",
             }
             .into(),
+            FailureKind::Image(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Image(issue) => match issue {
+                ImageIssue::InputMissing => "找不到输入文件。",
+                ImageIssue::Read => "无法读取文件，请检查访问权限。",
+                ImageIssue::NotFile => "请选择文件，而不是文件夹。",
+                ImageIssue::TooLarge => "图片超过 64 MiB，请选择更小的图片。",
+                ImageIssue::NotImage => "该文件不是图片，或其格式当前版本无法读取。",
+                ImageIssue::TooManyPixels => "图片超过 5000 万像素，请先缩小后再处理。",
+                ImageIssue::NotFolder => "请选择文件夹，而不是文件。",
+                ImageIssue::Exists => "目标文件夹里已经有同名文件了。",
+                ImageIssue::InvalidWidth => "宽度需要是 1 到 20000 之间的像素值。",
+                ImageIssue::Encode => "无法以该格式写出这张图片。",
+                ImageIssue::InvalidExtension => "文件名的扩展名必须与所选格式一致。",
+                ImageIssue::SourceOverwrite => "不能覆盖打开的原图，请选择其他路径。",
+                ImageIssue::CreateOutput => "无法在目标目录创建文件。",
+                ImageIssue::WriteOutput => "写入图片失败。",
+                ImageIssue::SaveOutput => "无法保存到目标文件。",
+            }
+            .into(),
             FailureKind::ClipboardAccess => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -422,6 +452,8 @@ pub enum Message {
     Capturing,
     Searching,
     Removing,
+    Opening,
+    Exporting,
     KeyGenerated,
     Copied,
     Collected,
@@ -429,6 +461,16 @@ pub enum Message {
     Cleared,
     Watching,
     Unwatched,
+    /// What a batch export actually did.
+    Exported {
+        total: usize,
+        files: usize,
+        skipped: usize,
+        failed: usize,
+        before_bytes: u64,
+        after_bytes: u64,
+        cancelled: bool,
+    },
     /// What a removal actually did. Skipped entries are not failures: a file
     /// that changed since the scan is one this tool leaves alone.
     Trashed {
@@ -437,6 +479,7 @@ pub enum Message {
         skipped: usize,
     },
     NothingFound,
+    NoPictures,
     Saved(PathBuf),
     Cancelled,
     Complete,
@@ -464,9 +507,20 @@ impl Message {
                 | Self::Watching
                 | Self::Unwatched
                 | Self::Trashed { .. }
+                | Self::Exported { .. }
                 | Self::NothingFound
+                | Self::NoPictures
                 | Self::Error(_)
         )
+    }
+
+    pub fn is_long_notice(&self) -> bool {
+        matches!(self, Self::Exported { .. })
+    }
+
+    pub fn is_error_notice(&self) -> bool {
+        matches!(self, Self::Error(_))
+            || matches!(self, Self::Exported { failed, .. } if *failed > 0)
     }
 
     pub fn render(&self, lang: Language) -> String {
@@ -494,7 +548,16 @@ impl Message {
             ),
             Self::Capturing => lang.text("Reading the clipboard…", "正在读取剪贴板…"),
             Self::Searching => lang.text("Reading the folder locally…", "正在本地扫描文件夹…"),
+            Self::Opening => lang.text("Opening the picture locally…", "正在本地打开图片…"),
+            Self::Exporting => lang.text(
+                "Choose the folder to export into…",
+                "请选择导出到哪个文件夹…",
+            ),
             Self::Removing => lang.text("Moving to the trash…", "正在移到回收站…"),
+            Self::NoPictures => lang.text(
+                "No pictures in this folder. Only the folder itself is read.",
+                "这个文件夹里没有图片。只读取该文件夹本身。",
+            ),
             Self::NothingFound => lang.text(
                 "Nothing to clean up here. This folder holds no duplicates.",
                 "这里没有需要清理的内容，该文件夹中没有重复文件。",
@@ -536,6 +599,78 @@ impl Message {
                 "Conversion finished, but no text was found in this document.",
                 "转换完成，但文档中未找到可提取的文本。",
             ),
+            Self::Exported {
+                total,
+                files,
+                skipped,
+                failed,
+                before_bytes,
+                after_bytes,
+                cancelled,
+            } => {
+                let pictures = |count: usize| {
+                    if count == 1 {
+                        lang.text("picture", "张图片")
+                    } else {
+                        lang.text("pictures", "张图片")
+                    }
+                };
+                let mut counts = vec![format!(
+                    "{} {} {}  ·  {} {} {}",
+                    lang.text("Total", "共"),
+                    total,
+                    pictures(*total),
+                    lang.text("succeeded", "成功"),
+                    files,
+                    pictures(*files)
+                )];
+                if *skipped > 0 {
+                    counts.push(format!(
+                        "{} {} {}",
+                        lang.text("skipped", "跳过"),
+                        skipped,
+                        pictures(*skipped)
+                    ));
+                }
+                if *failed > 0 {
+                    counts.push(format!(
+                        "{} {} {}",
+                        lang.text("failed", "失败"),
+                        failed,
+                        pictures(*failed)
+                    ));
+                }
+                if *cancelled {
+                    counts.push(lang.text("stopped", "已停止").to_owned());
+                }
+                let counts = counts.join("  ·  ");
+                if *files == 0 {
+                    return counts;
+                }
+                let change = if after_bytes == before_bytes || *before_bytes == 0 {
+                    lang.text("unchanged", "无变化").to_owned()
+                } else if after_bytes < before_bytes {
+                    format!(
+                        "{} {:.0}%",
+                        lang.text("down", "减少"),
+                        (before_bytes - after_bytes) as f64 * 100.0 / *before_bytes as f64
+                    )
+                } else {
+                    format!(
+                        "{} {:.0}%",
+                        lang.text("up", "增加"),
+                        (after_bytes - before_bytes) as f64 * 100.0 / *before_bytes as f64
+                    )
+                };
+                return format!(
+                    "{counts}\n{} {} → {}{}{change}{}",
+                    lang.text("Total size", "总体积"),
+                    size(*before_bytes),
+                    size(*after_bytes),
+                    lang.text(" (", "（"),
+                    lang.text(")", "）")
+                );
+            }
             Self::Trashed {
                 files,
                 freed,
@@ -610,6 +745,29 @@ mod tests {
         let error = Failure::document(anyhow::anyhow!(DocumentIssue::NeedsOcr));
         assert!(error.render(Language::Chinese).contains("扫描"));
         assert!(error.render(Language::English).contains("OCR"));
+    }
+
+    #[test]
+    fn image_export_notice_keeps_counts_and_aggregate_size_change() {
+        let notice = Message::Exported {
+            total: 5,
+            files: 3,
+            skipped: 1,
+            failed: 1,
+            before_bytes: 10 * 1024 * 1024,
+            after_bytes: 4 * 1024 * 1024,
+            cancelled: false,
+        };
+
+        assert!(notice.is_notice());
+        assert!(notice.is_long_notice());
+        assert!(notice.is_error_notice());
+        let chinese = notice.render(Language::Chinese);
+        assert!(chinese.contains("共 5 张图片"));
+        assert!(chinese.contains("成功 3 张图片"));
+        assert!(chinese.contains("跳过 1 张图片"));
+        assert!(chinese.contains("失败 1 张图片"));
+        assert!(chinese.contains("10.0 MiB → 4.0 MiB（减少 60%）"));
     }
 
     #[test]

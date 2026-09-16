@@ -1,0 +1,142 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "../components/action.slint";
+import { FileCard } from "../components/file_card.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { Segmented } from "../components/segmented.slint";
+import { TextField } from "../components/text_field.slint";
+import { Toggle } from "../components/toggle.slint";
+import { ImageList } from "../components/image_list.slint";
+import { PicturePanel } from "../components/picture_panel.slint";
+import { Icons } from "../icons.slint";
+import { ImagesState } from "../state/images.slint";
+
+export component ImagesPage inherits VerticalLayout {
+    in property <bool> busy;
+    in property <bool> dragging;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.images-title; description: I18n.images-description; badge: I18n.images-badge; }
+    FileCard {
+        filename: ImagesState.folder; detail: ImagesState.detail;
+        busy: root.busy; converting: ImagesState.working || ImagesState.exporting; dragging: root.dragging;
+        icon: Icons.folder;
+        prompt: I18n.images-choose;
+        drop-prompt: I18n.images-drop;
+        browse-label: I18n.images-browse;
+        change-label: I18n.images-change;
+        choose => { ImagesState.choose(); }
+    }
+    // Keep the library compact and give the remaining width to the image.
+    HorizontalLayout {
+        spacing: 16px; vertical-stretch: 1; min-height: 260px;
+        Rectangle {
+            width: 270px;
+            horizontal-stretch: 0;
+            ImageList {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                rows: ImagesState.rows;
+                has-folder: ImagesState.has-folder;
+                busy: root.busy;
+                working: ImagesState.working;
+                summary: ImagesState.summary;
+                show(index) => { ImagesState.show(index); }
+                toggle(index) => { ImagesState.toggle(index); }
+                tick-all => { ImagesState.tick-all(); }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            PicturePanel {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                source: ImagesState.preview;
+                has-image: ImagesState.has-picture;
+                filename: ImagesState.filename;
+                facts: ImagesState.facts;
+                loading: ImagesState.working && !ImagesState.has-picture;
+                details: ImagesState.details;
+                has-details: ImagesState.has-details;
+                note: I18n.images-exif-note;
+            }
+        }
+    }
+    // What would be written. Nothing is written until Export is pressed.
+    HorizontalLayout {
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            Segmented {
+                options: ["PNG", "JPEG", "TIFF", "BMP"];
+                enabled: ImagesState.has-folder && !root.busy;
+                selected <=> ImagesState.format;
+                changed => { ImagesState.settings-changed(); }
+            }
+        }
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 1;
+            TextField {
+                enabled: ImagesState.has-folder && !root.busy;
+                icon: Icons.arrow-right;
+                label: I18n.images-width;
+                placeholder: I18n.images-width-placeholder;
+                text <=> ImagesState.width;
+                edited => { ImagesState.settings-changed(); }
+            }
+        }
+        // A quality to choose, or an optimizer to run: which one is offered is
+        // the difference between a format that keeps every pixel and one that
+        // does not.
+        if !ImagesState.lossless: VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            Segmented {
+                options: [I18n.images-quality-low, I18n.images-quality-mid, I18n.images-quality-high];
+                enabled: ImagesState.has-folder && !root.busy;
+                selected <=> ImagesState.quality;
+                changed => { ImagesState.settings-changed(); }
+            }
+        }
+        if ImagesState.format == 0: VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            Toggle {
+                enabled: ImagesState.has-folder && !root.busy;
+                label: I18n.images-optimize;
+                checked <=> ImagesState.optimize;
+                toggled => { ImagesState.settings-changed(); }
+            }
+        }
+    }
+    HorizontalLayout {
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 1;
+            Text {
+                text: ImagesState.selection;
+                color: Theme.muted;
+                font-size: 12px;
+                wrap: word-wrap; min-width: 0px;
+            }
+        }
+        // While a batch runs, the one button that still means anything is the
+        // one that stops it.
+        VerticalLayout {
+            alignment: center; horizontal-stretch: 0;
+            if !ImagesState.exporting: Action {
+                label: I18n.images-export; icon: Icons.download; primary: true;
+                enabled: ImagesState.has-selection && !root.busy;
+                clicked => { ImagesState.export(); }
+            }
+            if ImagesState.exporting: Action {
+                label: I18n.images-stop; icon: Icons.alert;
+                clicked => { ImagesState.stop(); }
+            }
+        }
+    }
+    // A sentence of any length can only wrap here; it can never take width from
+    // a card above it.
+    Text {
+        text: ImagesState.status;
+        color: Theme.muted;
+        font-size: 11px;
+        wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.images-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

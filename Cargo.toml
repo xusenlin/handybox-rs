@@ -17,3 +17,24 @@ lto = "fat"
 strip = true
 codegen-units = 1
 
+
+# Keep application code debuggable while making image processing usable in
+# ordinary `cargo run`. Codec and resizer hot loops dominate large-image loads.
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.fast_image_resize]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.zune-core]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.oxipng]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3

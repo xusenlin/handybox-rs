@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 // Deliberately not `std-widgets`' `Switch`: that one follows the Fluent palette
 // rather than `Theme`.
 export component Toggle inherits Rectangle {
+    in property <bool> enabled: true;
     in property <string> label;
     in-out property <bool> checked;
     callback toggled(bool);
@@ -21,6 +22,7 @@ export component Toggle inherits Rectangle {
     forward-focus: focus;
 
     function flip() {
+        if !root.enabled { return; }
         root.checked = !root.checked;
         root.toggled(root.checked);
     }
@@ -51,6 +53,7 @@ export component Toggle inherits Rectangle {
         }
     }
     TouchArea {
+        enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.flip(); }
     }

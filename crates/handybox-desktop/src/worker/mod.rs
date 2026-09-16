@@ -8,6 +8,7 @@ pub mod codes;
 pub mod crypto;
 pub mod diff;
 pub mod documents;
+pub mod images;
 pub mod json;
 
 use crate::locale::{Failure, FailureKind, Message};
@@ -23,6 +24,7 @@ pub enum Command {
     Codes(codes::Command),
     Clipboard(clipboard::Command),
     Cleanup(cleanup::Command),
+    Images(images::Command),
     /// Copying is the same operation whichever tool produced the text, and the
     /// clipboard context is shared, so it lives here rather than in both tools.
     Copy(String),
@@ -36,6 +38,7 @@ pub enum Event {
     Codes(codes::Event),
     Clipboard(clipboard::Event),
     Cleanup(cleanup::Event),
+    Images(images::Event),
     /// A command that only produced a notice: a copy, an export, a cancelled
     /// dialog or a failure. Every tool's busy state ends here.
     Finished(std::result::Result<Message, Failure>),
@@ -120,6 +123,7 @@ impl Worker {
                                 clipboard::execute(command, &mut shared, &output)
                             }
                             Command::Cleanup(command) => cleanup::execute(command, &output),
+                            Command::Images(command) => images::execute(command, &output),
                             Command::Copy(text) => {
                                 let _ = output.send(Event::Finished(shared.copy(text)));
                             }

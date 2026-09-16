@@ -8,12 +8,13 @@ import { Icons } from "../icons.slint";
 export component Toast inherits Rectangle {
     in property <string> message;
     in property <bool> error;
+    in property <bool> long;
     callback dismissed();
 
     private property <bool> shown: root.message != "";
 
-    width: min(row.preferred-width, 620px);
-    height: 44px;
+    width: root.long ? 760px : min(row.preferred-width, 620px);
+    height: root.long ? 68px : 44px;
     border-radius: 10px;
     background: root.error ? #fff0ee : #edf6f1;
     border-width: 1px;
@@ -40,18 +41,22 @@ export component Toast inherits Rectangle {
             color: root.error ? Theme.error : Theme.ink;
             font-size: 12px;
             vertical-alignment: center;
-            wrap: no-wrap; overflow: elide;
+            horizontal-stretch: 1; min-width: 0px;
+            wrap: root.long ? word-wrap : no-wrap;
+            overflow: root.long ? clip : elide;
         }
     }
 
     life := Timer {
-        // Errors linger: they are usually read, not just acknowledged.
-        interval: root.error ? 7s : 3s;
+        // Detailed export summaries need more reading time than ordinary
+        // acknowledgements; errors also linger.
+        interval: root.long ? 10s : root.error ? 7s : 3s;
         running: root.shown;
         triggered => { root.dismissed(); }
     }
     // A replacement notice restarts the countdown instead of inheriting it.
     changed message => { life.restart(); }
+    changed long => { life.restart(); }
 
     TouchArea {
         enabled: root.shown;

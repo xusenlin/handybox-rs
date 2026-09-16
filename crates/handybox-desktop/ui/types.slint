@@ -18,6 +18,24 @@ export struct DiffRow {
     text: string,
 }
 
+// One picture in the folder the image studio is looking at. `ticked` is whether
+// a batch would write it and `shown` is whether it is the one on screen: two
+// selections, because they answer different questions.
+export struct ImageRow {
+    name: string,
+    detail: string,
+    ticked: bool,
+    shown: bool,
+    index: int,
+}
+
+// One fact about a picture: what it is called in the display language, and what
+// the camera actually recorded. Values are never translated.
+export struct DetailRow {
+    label: string,
+    value: string,
+}
+
 // One row of a cleanup result. A header stands for a group of identical files
 // and is not selectable, which is what `index: -1` means; every other row points
 // back at the entry it came from, because the list the page shows and the list

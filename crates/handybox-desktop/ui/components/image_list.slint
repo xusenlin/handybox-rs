@@ -1,0 +1,100 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { ImageRow } from "../types.slint";
+
+// A box that is ticked, rather than a switch that is thrown: a row is one of
+// many, and many switches read as many settings.
+component Tick inherits Rectangle {
+    in property <bool> checked;
+    callback clicked();
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: root.checked ? Theme.accent : #c3ccd4;
+    background: root.checked ? Theme.accent : Theme.surface;
+    if root.checked: Icon { source: Icons.check-circle; ink: white; x: 2px; y: 2px; width: 14px; height: 14px; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// The pictures in a folder. A row does two different things: its box says
+// whether a batch would write it, and the row itself puts it on screen. Keeping
+// them apart is what lets someone look through a folder without changing what
+// they are about to export.
+//
+// Like CodeView, the `for` is the direct child of the ListView, which is what
+// compiles it into a virtualized repeater.
+export component ImageList inherits Rectangle {
+    in property <[ImageRow]> rows;
+    in property <bool> has-folder;
+    in property <bool> busy;
+    in property <bool> working;
+    in property <string> summary;
+    callback show(int);
+    callback toggle(int);
+    callback tick-all();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 14px; spacing: 12px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.image; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.images-folder; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            Action { label: I18n.images-tick-all; icon: Icons.check-circle; enabled: root.has-folder && !root.busy; clicked => { root.tick-all(); } }
+        }
+        Text { text: I18n.images-list-hint; color: Theme.muted; font-size: 10px; wrap: word-wrap; min-width: 0px; }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-folder: EmptyState {
+            tool-key: "images";
+            heading: I18n.images-empty-title;
+            description: I18n.images-empty-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-folder: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 4px; y: 8px;
+                width: parent.width - 8px; height: parent.height - 16px;
+                for row in root.rows: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: line.preferred-height;
+                    border-radius: 8px;
+                    background: row.shown ? Theme.tint : transparent;
+                    // Declared before the row, so the tick box inside it stays
+                    // on top and keeps its own click.
+                    TouchArea { enabled: !root.busy; mouse-cursor: pointer; clicked => { root.show(row.index); } }
+                    line := HorizontalLayout {
+                        padding-left: 10px; padding-right: 10px;
+                        padding-top: 7px; padding-bottom: 7px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Tick { checked: row.ticked; clicked => { if !root.busy { root.toggle(row.index); } } }
+                        }
+                        VerticalLayout {
+                            alignment: center; spacing: 3px; horizontal-stretch: 1;
+                            Text {
+                                text: row.name;
+                                color: Theme.ink; font-size: 13px;
+                                font-weight: row.shown ? 600 : 400;
+                                overflow: elide; min-width: 0px;
+                            }
+                            Text { text: row.detail; color: Theme.muted; font-size: 10px; overflow: elide; min-width: 0px; }
+                        }
+                    }
+                }
+            }
+        }
+        if root.has-folder: Text {
+            text: root.summary;
+            color: Theme.muted; font-size: 10px; wrap: word-wrap;
+            // Wrap instead of widening the card: see the page's status line.
+            min-width: 0px;
+        }
+    }
+}

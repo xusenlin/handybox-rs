@@ -11,12 +11,20 @@ anyhow.workspace = true
 # Decoding only, and only the formats the barcode reader offers to open. The
 # default set would pull AVIF and OpenEXR encoders in for no one.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp", "tiff", "ico", "tga", "qoi", "pnm"] }
+# Resizing quality that a naive nearest-neighbour loop cannot reach, with SIMD
+# paths on the platforms this ships to.
+fast_image_resize = { version = "6", features = ["image"] }
 jaq-core = "3"
 jaq-json = "2"
 jaq-std = "3"
 # Recognition reads grayscale, which the image crate already gives us, so rxing's
 # own `image` feature (and the imageproc tree behind it) stays out of the build.
 rxing = { version = "0.9.2", default-features = false, features = ["decoders", "multi_barcode_readers", "full_barcode_format_support", "encoding_rs"] }
+# EXIF only: no writing, no media containers beyond what a camera file is.
+nom-exif = "3"
+# Lossless PNG optimization. Its own CLI, logging and zopfli are left out: the
+# first is not a library concern and the last trades minutes for a few per cent.
+oxipng = { version = "10", default-features = false, features = ["parallel"] }
 serde_json = "1"
 sha2 = "0.10"
 similar = "3"

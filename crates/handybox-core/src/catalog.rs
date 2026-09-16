@@ -65,8 +65,8 @@ pub const TOOLS: &[ToolDescriptor] = &[
         name: "Image studio",
         subtitle: "Resize, convert and inspect your images locally.",
         libraries: "image + fast_image_resize + oxipng + nom-exif",
-        capabilities: "Image conversion and batch resizing\nLossless PNG optimization\nEXIF metadata inspection",
-        available: false,
+        capabilities: "Convert between PNG, JPEG, TIFF and BMP\nResize with a high-quality filter\nLossless PNG optimization and EXIF inspection",
+        available: true,
     },
     ToolDescriptor {
         id: ToolId::Archives,

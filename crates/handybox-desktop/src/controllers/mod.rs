@@ -6,6 +6,7 @@ pub mod codes;
 pub mod crypto;
 pub mod diff;
 pub mod documents;
+pub mod images;
 pub mod json;
 
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
 };
 use handybox_core::{
     catalog::{TOOLS, ToolDescriptor},
-    tools::{codes as core_codes, crypto as core_crypto, json as core_json},
+    tools::{codes as core_codes, crypto as core_crypto, images as core_images, json as core_json},
 };
 use i_slint_backend_winit::{EventResult, WinitWindowAccessor, winit::event::WindowEvent};
 use slint::{ComponentHandle, ModelRc, Timer, TimerMode, VecModel};
@@ -114,11 +115,14 @@ impl Shell {
         let Some(ui) = self.ui.upgrade() else { return };
         let state = self.state.borrow();
         let lang = state.language;
-        let is_error = matches!(state.message, Message::Error(_));
+        let is_error = state.message.is_error_notice();
         // One notice surface, owned by the shell. The status bar is shared by
         // every tool, so anything shown there would have to be cleared on
         // navigation.
         ui.set_notice_error(is_error || state.preference_error.is_some());
+        ui.set_notice_long(
+            state.message.is_long_notice() && (state.preference_error.is_none() || is_error),
+        );
         ui.set_notice(if state.preference_error.is_some() && !is_error {
             lang.text(
                 "Language changed for this session, but the preference could not be saved.",
@@ -181,6 +185,7 @@ struct Tools {
     codes: codes::Controller,
     clipboard: clipboard::Controller,
     cleanup: cleanup::Controller,
+    images: images::Controller,
 }
 
 impl Tools {
@@ -193,6 +198,7 @@ impl Tools {
             codes: codes::Controller::new(ui),
             clipboard: clipboard::Controller::new(ui),
             cleanup: cleanup::Controller::new(ui),
+            images: images::Controller::new(ui),
         }
     }
 
@@ -204,6 +210,7 @@ impl Tools {
         self.codes.bind(shell);
         self.clipboard.bind(shell);
         self.cleanup.bind(shell);
+        self.images.bind(shell);
     }
 
     /// Re-render what every tool derives from its state. Only presentation
@@ -217,6 +224,7 @@ impl Tools {
         self.codes.refresh(language);
         self.clipboard.refresh(language);
         self.cleanup.refresh(language);
+        self.images.refresh(language);
     }
 
     fn handle(&self, shell: &Shell, event: Event) {
@@ -228,6 +236,7 @@ impl Tools {
             Event::Codes(event) => self.codes.handle(shell, event),
             Event::Clipboard(event) => self.clipboard.handle(shell, event),
             Event::Cleanup(event) => self.cleanup.handle(shell, event),
+            Event::Images(event) => self.images.handle(shell, event),
             Event::Finished(outcome) => shell.finish(outcome),
         }
     }
@@ -248,12 +257,23 @@ impl Tools {
     /// While one of their pages is showing, a dropped file is its input rather
     /// than something to route away.
     fn open(&self, shell: &Shell, path: PathBuf) {
-        // A folder is not an input to any of the tools that take a file, and
-        // there is exactly one tool that takes a folder.
+        // A folder means something to two tools now, so the page that is
+        // showing decides: the image studio lists what is in it, and Disk
+        // cleanup — which is what a folder means everywhere else — reads it.
         if path.is_dir() {
-            self.cleanup.open(shell, path);
+            if shell.showing("images") {
+                self.images.open(shell, path);
+            } else {
+                self.cleanup.open(shell, path);
+            }
         } else if shell.showing("crypto") {
             self.crypto.open(shell, path, None);
+        // Two tools take a picture, so the page that is showing decides which
+        // one a dropped image belongs to; the barcode reader keeps the claim
+        // when neither is on screen, because reading a code off a picture is
+        // the answer to a question, and opening it is not.
+        } else if shell.showing("images") && core_images::claims(&path) {
+            self.images.open(shell, path);
         } else if shell.showing("diff") {
             self.diff.open(shell, path);
         } else if core_crypto::claims(&path) {

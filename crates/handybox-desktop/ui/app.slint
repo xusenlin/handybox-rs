@@ -1,6 +1,6 @@
 import { I18n } from "i18n.slint";
 import { Theme } from "theme.slint";
-import { CleanupRow, ClipItem, CodeSymbol, DiffRow, ToolItem } from "types.slint";
+import { CleanupRow, ClipItem, CodeSymbol, DetailRow, DiffRow, ToolItem } from "types.slint";
 import { DocumentsState } from "state/documents.slint";
 import { JsonState } from "state/json.slint";
 import { CryptoState } from "state/crypto.slint";
@@ -8,6 +8,7 @@ import { DiffState } from "state/diff.slint";
 import { CodesState } from "state/codes.slint";
 import { ClipboardState } from "state/clipboard.slint";
 import { CleanupState } from "state/cleanup.slint";
+import { ImagesState } from "state/images.slint";
 import { Sidebar } from "components/sidebar.slint";
 import { StatusBar } from "components/status_bar.slint";
 import { Toast } from "components/toast.slint";
@@ -18,8 +19,9 @@ import { DiffPage } from "pages/diff.slint";
 import { CodesPage } from "pages/codes.slint";
 import { ClipboardPage } from "pages/clipboard.slint";
 import { CleanupPage } from "pages/cleanup.slint";
+import { ImagesPage } from "pages/images.slint";
 import { PlaceholderPage } from "pages/placeholder.slint";
-export { Theme, ToolItem, DiffRow, CodeSymbol, ClipItem, CleanupRow, I18n, DocumentsState, JsonState, CryptoState, DiffState, CodesState, ClipboardState, CleanupState }
+export { Theme, ToolItem, DiffRow, CodeSymbol, ClipItem, CleanupRow, DetailRow, I18n, DocumentsState, JsonState, CryptoState, DiffState, CodesState, ClipboardState, CleanupState, ImagesState }
 
 // Application shell: route and compose. A tool's own state lives in its global
 // (state/), its layout in pages/. The shell owns only what every tool shares.
@@ -36,6 +38,7 @@ export component AppWindow inherits Window {
     in property <ToolItem> current-tool;
     in property <string> notice;
     in property <bool> notice-error;
+    in property <bool> notice-long;
     in property <string> repository;
     in property <bool> busy;
     in property <bool> dragging;
@@ -56,13 +59,14 @@ export component AppWindow inherits Window {
             if root.current-tool.key == "codes": CodesPage { busy: root.busy; dragging: root.dragging; }
             if root.current-tool.key == "clipboard": ClipboardPage { busy: root.busy; }
             if root.current-tool.key == "cleanup": CleanupPage { busy: root.busy; dragging: root.dragging; }
+            if root.current-tool.key == "images": ImagesPage { busy: root.busy; dragging: root.dragging; }
             if !root.current-tool.available: PlaceholderPage { tool: root.current-tool; open-documents => { root.navigate("documents"); } }
         }
         StatusBar { repository: root.repository; open-repository => { root.open-repository(); } }
     }
     // Sibling of the layout, so it overlays the page instead of displacing it.
     Toast {
-        message: root.notice; error: root.notice-error;
+        message: root.notice; error: root.notice-error; long: root.notice-long;
         x: (root.width - self.width) / 2;
         base-y: root.height - 35px - self.height - 20px;
         dismissed => { root.dismiss-notice(); }
