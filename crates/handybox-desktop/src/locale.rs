@@ -2,8 +2,8 @@
 use handybox_core::{
     catalog::{ToolDescriptor, ToolId},
     tools::{
-        codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue,
-        json::JsonIssue,
+        clipboard::ClipboardIssue, codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue,
+        documents::DocumentIssue, json::JsonIssue,
     },
 };
 use std::path::PathBuf;
@@ -128,7 +128,10 @@ pub enum FailureKind {
     Crypto(CryptoIssue),
     Diff(DiffIssue),
     Codes(CodesIssue),
-    Clipboard,
+    Clipboard(ClipboardIssue),
+    /// The OS clipboard could not be reached at all — which any tool can run
+    /// into, because every one of them can copy its result.
+    ClipboardAccess,
     Operation,
     Worker,
 }
@@ -186,6 +189,16 @@ impl Failure {
                 .downcast_ref::<CodesIssue>()
                 .copied()
                 .map(FailureKind::Codes),
+            error,
+        )
+    }
+
+    pub fn clipboard(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<ClipboardIssue>()
+                .copied()
+                .map(FailureKind::Clipboard),
             error,
         )
     }
@@ -314,7 +327,19 @@ impl Failure {
                 CodesIssue::TooManyPixels => "图片超过 4000 万像素，请先缩小后再识别。",
             }
             .into(),
-            FailureKind::Clipboard => lang
+            FailureKind::Clipboard(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Clipboard(issue) => match issue {
+                ClipboardIssue::Empty => "剪贴板中没有可收集的内容。",
+                ClipboardIssue::Unsupported => "剪贴板中的内容格式暂不支持收集。",
+                ClipboardIssue::TooLarge => "该内容过大，无法放入工作区，请复制其中一部分。",
+                ClipboardIssue::Gone => "该条目已不在工作区中。",
+                ClipboardIssue::InvalidExtension => "保存图片必须使用 .png 扩展名。",
+                ClipboardIssue::CreateOutput => "无法在目标目录创建文件。",
+                ClipboardIssue::WriteOutput => "写入图片失败。",
+                ClipboardIssue::SaveOutput => "无法保存到目标文件。",
+            }
+            .into(),
+            FailureKind::ClipboardAccess => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
             FailureKind::Operation => lang
@@ -354,8 +379,14 @@ pub enum Message {
     Scanning,
     Encrypting,
     Decrypting,
+    Capturing,
     KeyGenerated,
     Copied,
+    Collected,
+    AlreadyCollected,
+    Cleared,
+    Watching,
+    Unwatched,
     Saved(PathBuf),
     Cancelled,
     Complete,
@@ -377,6 +408,11 @@ impl Message {
                 | Self::EmptyResult
                 | Self::NoOutput
                 | Self::KeyGenerated
+                | Self::Collected
+                | Self::AlreadyCollected
+                | Self::Cleared
+                | Self::Watching
+                | Self::Unwatched
                 | Self::Error(_)
         )
     }
@@ -404,7 +440,28 @@ impl Message {
                 "New key pair created. Save the secret key somewhere safe: without it, nothing encrypted to this public key can be opened again.",
                 "已生成新的密钥对。请妥善保存私钥：没有它，加密给该公钥的文件将无法再打开。",
             ),
+            Self::Capturing => lang.text("Reading the clipboard…", "正在读取剪贴板…"),
             Self::Copied => lang.text("Copied to your clipboard.", "已复制到剪贴板。"),
+            Self::Collected => lang.text(
+                "Added to your clipboard workspace.",
+                "已添加到剪贴板工作区。",
+            ),
+            Self::AlreadyCollected => lang.text(
+                "Already in your workspace. Moved back to the top.",
+                "该内容已在工作区中，已移回最前。",
+            ),
+            Self::Cleared => lang.text(
+                "Workspace emptied. Your system clipboard is untouched.",
+                "工作区已清空，系统剪贴板不受影响。",
+            ),
+            Self::Watching => lang.text(
+                "Collecting automatically. Everything you copy is kept here until you switch this off.",
+                "已开启自动收集。在关闭之前，你复制的内容都会保留在这里。",
+            ),
+            Self::Unwatched => lang.text(
+                "Automatic collecting is off. What is already here stays.",
+                "已关闭自动收集，已有的内容仍会保留。",
+            ),
             Self::Cancelled => lang.text(
                 "Operation cancelled. Your current result is unchanged.",
                 "操作已取消，当前结果保持不变。",
@@ -526,6 +583,36 @@ mod tests {
             detail
                 .render(Language::Chinese)
                 .contains("unsupported color type")
+        );
+    }
+
+    #[test]
+    fn clipboard_failures_separate_what_was_on_it_from_reaching_it_at_all() {
+        // Two different things go wrong around a clipboard, and only one of them
+        // is the workspace tool's: every tool can fail to reach the clipboard
+        // while copying its own result.
+        let empty = Failure::clipboard(anyhow::anyhow!(ClipboardIssue::Empty));
+        assert!(!empty.about_input());
+        assert!(empty.render(Language::English).contains("nothing"));
+        assert!(empty.render(Language::Chinese).contains("剪贴板"));
+        let access = Failure {
+            kind: FailureKind::ClipboardAccess,
+            detail: String::new(),
+        };
+        assert!(
+            access
+                .render(Language::English)
+                .contains("Could not access")
+        );
+        assert!(access.render(Language::Chinese).contains("无法访问"));
+        // The platform's own diagnostic is kept as the cause, in either language.
+        let detail = Failure::clipboard(
+            anyhow::anyhow!("NSPasteboard is unavailable").context(ClipboardIssue::Unsupported),
+        );
+        assert!(
+            detail
+                .render(Language::Chinese)
+                .contains("NSPasteboard is unavailable")
         );
     }
 

@@ -11,6 +11,10 @@ import { Theme } from "../theme.slint";
 // and the cost stops depending on how long the document is.
 export component CodeView inherits Rectangle {
     in property <[string]> lines;
+    /// Source is monospace, and so is anything read as a path or a digest. Text
+    /// someone wrote is not: the monospace families have no CJK coverage, so a
+    /// tool showing a person's own words asks for the display family instead.
+    in property <string> family: Theme.mono-family;
     // Blank lines carry structure in Markdown, so keep them a full row tall.
     private property <length> row-height: 19px;
     background: Theme.surface;
@@ -23,7 +27,7 @@ export component CodeView inherits Rectangle {
             width: parent.visible-width - 8px;
             height: max(self.preferred-height, root.row-height);
             wrap: word-wrap;
-            font-family: Theme.mono-family;
+            font-family: root.family;
             font-size: 13px;
             color: Theme.ink;
         }

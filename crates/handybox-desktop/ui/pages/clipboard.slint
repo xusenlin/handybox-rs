@@ -1,0 +1,103 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "../components/action.slint";
+import { Icon } from "../components/icon.slint";
+import { PageHeader } from "../components/page_header.slint";
+import { Toggle } from "../components/toggle.slint";
+import { ClipList } from "../components/clip_list.slint";
+import { ClipDetail } from "../components/clip_detail.slint";
+import { Icons } from "../icons.slint";
+import { ClipboardState } from "../state/clipboard.slint";
+
+export component ClipboardPage inherits VerticalLayout {
+    in property <bool> busy;
+    padding: Theme.page-padding; spacing: 16px;
+    PageHeader { heading: I18n.clipboard-title; description: I18n.clipboard-description; badge: I18n.clipboard-badge; }
+    // Reading the clipboard once and watching it are the same thing asked for
+    // differently, so they sit together. Watching is off until it is switched
+    // on here, and switching it on is the only thing that starts it.
+    Rectangle {
+        height: 96px;
+        border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+        HorizontalLayout {
+            padding-left: 23px; padding-right: 23px;
+            padding-top: 16px; padding-bottom: 16px;
+            spacing: 17px;
+            // A fixed-size child is not centred on the cross axis of a layout,
+            // so the tile and every control are wrapped to line up with the
+            // text between them.
+            VerticalLayout {
+                alignment: center; horizontal-stretch: 0;
+                Rectangle {
+                    width: 52px; height: 58px; border-radius: 10px; background: Theme.tint;
+                    Icon { source: Icons.clipboard; ink: Theme.accent; width: 28px; height: 28px; x: 12px; y: 15px; }
+                }
+            }
+            VerticalLayout {
+                spacing: 8px; alignment: center; horizontal-stretch: 1;
+                Text { text: I18n.clipboard-workspace; color: Theme.ink; font-size: 15px; font-weight: 600; overflow: elide; }
+                Text {
+                    text: ClipboardState.watching ? I18n.clipboard-watching-hint : I18n.clipboard-hint;
+                    color: Theme.muted; font-size: 11px; overflow: elide;
+                }
+            }
+            VerticalLayout {
+                alignment: center; horizontal-stretch: 0;
+                Toggle {
+                    label: I18n.clipboard-watch;
+                    checked <=> ClipboardState.watching;
+                    toggled(on) => { ClipboardState.watch(on); }
+                }
+            }
+            VerticalLayout {
+                alignment: center; horizontal-stretch: 0;
+                Action { label: I18n.clipboard-capture; icon: Icons.clipboard; primary: true; enabled: !root.busy; clicked => { ClipboardState.capture(); } }
+            }
+        }
+    }
+    // The list and the item on show, side by side and each in a plain Rectangle
+    // it sizes itself to: a layout hands out width by its children's preferred
+    // sizes, so the card holding a long line would otherwise keep growing at
+    // the other one's expense.
+    HorizontalLayout {
+        spacing: 16px; vertical-stretch: 1; min-height: 240px;
+        Rectangle {
+            horizontal-stretch: 1;
+            ClipList {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                items: ClipboardState.items;
+                selected: ClipboardState.selected;
+                has-items: ClipboardState.has-items;
+                busy: root.busy;
+                stats: ClipboardState.stats;
+                select(id) => { ClipboardState.select(id); }
+                copy(id) => { ClipboardState.copy(id); }
+                clear => { ClipboardState.clear(); }
+            }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            ClipDetail {
+                x: 0; y: 0; width: parent.width; height: parent.height;
+                kind: ClipboardState.detail-kind;
+                title: ClipboardState.detail-title;
+                caption: ClipboardState.detail-caption;
+                lines: ClipboardState.detail-lines;
+                picture: ClipboardState.detail-image;
+                picture-width: ClipboardState.detail-width;
+                picture-height: ClipboardState.detail-height;
+                has-detail: ClipboardState.has-detail;
+                busy: root.busy;
+                save => { ClipboardState.save(); }
+                remove => { ClipboardState.remove(ClipboardState.selected); }
+            }
+        }
+    }
+    // A sentence of any length can only wrap here; it can never take width from
+    // a card beside it.
+    Text {
+        text: ClipboardState.status;
+        color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px;
+    }
+    Text { text: I18n.clipboard-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+}

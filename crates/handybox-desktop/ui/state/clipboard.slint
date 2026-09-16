@@ -1,0 +1,43 @@
+import { ClipItem } from "../types.slint";
+
+// Everything the Clipboard workspace owns. The items live in Rust for as long
+// as the window does; this is only what they look like.
+//
+// The selection is an `in` property rather than view state the page keeps for
+// itself: choosing an item is what builds the panel beside the list, and only
+// Rust holds what that panel shows.
+export global ClipboardState {
+    in property <[ClipItem]> items;
+    in property <bool> has-items;
+    /// The id of the item on show, or -1 for none.
+    in property <int> selected: -1;
+    /// Whether the clipboard is being watched. Switched on by the person using
+    /// it and by nothing else: a clipboard carries passwords as often as it
+    /// carries a paragraph. In-out because the switch writes it, and Rust
+    /// writes it back when a watcher fails to start.
+    in-out property <bool> watching;
+    /// What the workspace is holding, for the line under the list.
+    in property <string> stats;
+    in property <bool> has-detail;
+    /// 0 text, 1 image, 2 file references.
+    in property <int> detail-kind;
+    in property <string> detail-title;
+    in property <string> detail-caption;
+    /// The selected item as lines: the text itself, or one path per line.
+    in property <[string]> detail-lines;
+    /// The selected picture, already decoded by the worker, with the size it
+    /// was kept at — the panel never draws it larger than that.
+    in property <image> detail-image;
+    in property <float> detail-width;
+    in property <float> detail-height;
+    in property <string> status;
+    callback capture();
+    callback watch(bool);
+    callback clear();
+    callback select(int);
+    /// Put an item back on the system clipboard, ready to paste.
+    callback copy(int);
+    /// Write the selected picture out as a file.
+    callback save();
+    callback remove(int);
+}

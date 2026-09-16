@@ -1,0 +1,108 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Badge } from "badge.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { ClipItem } from "../types.slint";
+
+// What the workspace is holding: a titled card with one row per item, newest
+// first. A row shows the one line the item reads like; the panel beside it
+// shows the whole thing.
+//
+// Like CodeView, the `for` is the direct child of the ListView, which is what
+// compiles it into a virtualized repeater.
+export component ClipList inherits Rectangle {
+    in property <[ClipItem]> items;
+    in property <int> selected;
+    in property <bool> has-items;
+    in property <bool> busy;
+    in property <string> stats;
+    callback select(int);
+    callback copy(int);
+    callback clear();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.clipboard; ink: Theme.accent; width: 18px; }
+            Text { text: I18n.clipboard-items; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Text { text: I18n.clipboard-items-caption; font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px; }
+            Rectangle { horizontal-stretch: 1; }
+            // Emptying the workspace touches nothing but the workspace: the
+            // system clipboard keeps whatever is on it.
+            Action { label: I18n.clipboard-clear; icon: Icons.alert; enabled: root.has-items && !root.busy; clicked => { root.clear(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-items: EmptyState {
+            tool-key: "clipboard";
+            heading: I18n.clipboard-empty-title;
+            description: I18n.clipboard-empty-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-items: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 4px; y: 8px;
+                width: parent.width - 8px; height: parent.height - 16px;
+                for item in root.items: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: row.preferred-height;
+                    border-radius: 8px;
+                    background: item.id == root.selected ? Theme.tint : transparent;
+                    // Declared before the row, so the copy button inside it
+                    // stays on top and keeps its own click.
+                    TouchArea { mouse-cursor: pointer; clicked => { root.select(item.id); } }
+                    // The inset is the row's own padding rather than an offset
+                    // on the row: a layout inside a Rectangle takes the whole
+                    // of it, so moving it down with `y` would push its bottom
+                    // edge past the background and everything centred in it
+                    // would sit low by exactly that much.
+                    row := HorizontalLayout {
+                        padding-left: 10px; padding-right: 10px;
+                        padding-top: 8px; padding-bottom: 8px;
+                        spacing: 11px;
+                        // Every column is centred on the row rather than hung
+                        // from its top: a row is one line of content, and its
+                        // height comes from the tallest thing in it — the copy
+                        // button — so a badge left at `start` would sit above
+                        // the line it labels.
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Badge { label: item.label; highlighted: item.id == root.selected; }
+                        }
+                        VerticalLayout {
+                            alignment: center; spacing: 5px; horizontal-stretch: 1;
+                            // One line, whatever was copied: a row is for
+                            // finding the item again, not for reading it.
+                            //
+                            // Clipped rather than elided, because eliding cuts
+                            // at the last word boundary and a Chinese sentence
+                            // has none: a line of it would be cut back to the
+                            // one space in it, however much room the row had.
+                            Text {
+                                text: item.summary;
+                                color: Theme.ink; font-size: 13px;
+                                overflow: clip; min-width: 0px;
+                            }
+                            Text { text: item.detail; color: Theme.muted; font-size: 10px; overflow: elide; min-width: 0px; }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Action { label: I18n.clipboard-copy; icon: Icons.copy; enabled: !root.busy; clicked => { root.copy(item.id); } }
+                        }
+                    }
+                }
+            }
+        }
+        if root.has-items: Text {
+            text: root.stats;
+            color: Theme.muted; font-size: 10px; wrap: word-wrap;
+            // Wrap instead of widening the card: see the page's status line.
+            min-width: 0px;
+        }
+    }
+}

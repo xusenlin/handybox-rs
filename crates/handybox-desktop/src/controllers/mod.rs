@@ -1,5 +1,6 @@
 //! UI wiring. The shell owns routing, language and the single notice surface;
 //! every tool owns its own state, callbacks and events in its own module.
+pub mod clipboard;
 pub mod codes;
 pub mod crypto;
 pub mod diff;
@@ -177,6 +178,7 @@ struct Tools {
     crypto: crypto::Controller,
     diff: diff::Controller,
     codes: codes::Controller,
+    clipboard: clipboard::Controller,
 }
 
 impl Tools {
@@ -187,6 +189,7 @@ impl Tools {
             crypto: crypto::Controller::new(ui),
             diff: diff::Controller::new(ui),
             codes: codes::Controller::new(ui),
+            clipboard: clipboard::Controller::new(ui),
         }
     }
 
@@ -196,6 +199,7 @@ impl Tools {
         self.crypto.bind(shell);
         self.diff.bind(shell);
         self.codes.bind(shell);
+        self.clipboard.bind(shell);
     }
 
     /// Re-render what every tool derives from its state. Only presentation
@@ -207,6 +211,7 @@ impl Tools {
         self.crypto.refresh(language);
         self.diff.refresh(language);
         self.codes.refresh(language);
+        self.clipboard.refresh(language);
     }
 
     fn handle(&self, shell: &Shell, event: Event) {
@@ -216,15 +221,18 @@ impl Tools {
             Event::Crypto(event) => self.crypto.handle(shell, event),
             Event::Diff(event) => self.diff.handle(shell, event),
             Event::Codes(event) => self.codes.handle(shell, event),
+            Event::Clipboard(event) => self.clipboard.handle(shell, event),
             Event::Finished(outcome) => shell.finish(outcome),
         }
     }
 
     /// Editing is not an operation: the workbench validates and the diff tool
-    /// compares on their own clock.
+    /// compares on their own clock, and the clipboard workspace re-states how
+    /// long ago it collected what it is showing.
     fn tick(&self, shell: &Shell) {
         self.json.tick(shell);
         self.diff.tick(shell);
+        self.clipboard.tick(shell);
     }
 
     /// Hand a file to the tool that handles it. The extension is all there is to

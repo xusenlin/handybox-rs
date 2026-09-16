@@ -18,6 +18,19 @@ export struct DiffRow {
     text: string,
 }
 
+// One item in the clipboard workspace. `kind` is 0 text, 1 image, 2 file
+// references; `label` is that kind in the display language. `id` is the
+// workspace's own identifier rather than a row index, because with automatic
+// collecting switched on the list can change between drawing a row and clicking
+// it, and a row index would then point at something else.
+export struct ClipItem {
+    id: int,
+    kind: int,
+    label: string,
+    summary: string,
+    detail: string,
+}
+
 // One recognized code. The geometry is a fraction of the picture — 0 is its left
 // or top edge, 1 the right or bottom one — so the same numbers place a marker
 // over a preview of any size. `index` is a string because it is only ever shown,

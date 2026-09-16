@@ -19,7 +19,9 @@ slint = { version = "=1.13.1", default-features = false, features = ["std", "com
 i-slint-backend-winit = { version = "=1.13.1", features = ["x11", "renderer-femtovg", "renderer-software"] }
 rfd = { version = "0.15", default-features = false, features = ["xdg-portal", "async-std"] }
 futures-lite = "2"
-clipboard-rs = { version = "0.3.5", default-features = false }
+# `image` is the clipboard's picture support: a screenshot is one of the three
+# things a clipboard carries, and without it this crate only sees text and files.
+clipboard-rs = { version = "0.3.5", default-features = false, features = ["image"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 wayland-sys = { version = "0.31", features = ["dlopen"] }

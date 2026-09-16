@@ -102,6 +102,6 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "A temporary workspace for the things you copy.",
         libraries: "clipboard-rs",
         capabilities: "Inspect text, images and file references\nCollect and copy items manually\nOpt-in session history",
-        available: false,
+        available: true,
     },
 ];

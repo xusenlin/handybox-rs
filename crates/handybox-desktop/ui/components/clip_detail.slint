@@ -1,0 +1,75 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { CodeView } from "code_view.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+
+// The selected item in full: the text as it was copied, the paths a file
+// reference stands for, or the picture itself. Copying puts it back on the
+// system clipboard, which is what the workspace is for.
+export component ClipDetail inherits Rectangle {
+    /// 0 text, 1 image, 2 file references.
+    in property <int> kind;
+    in property <string> title;
+    in property <string> caption;
+    in property <[string]> lines;
+    in property <image> picture;
+    /// The thumbnail's own size in pixels, so it is never drawn larger than it
+    /// was kept: an enlarged thumbnail is a blur, not a better look at it.
+    in property <float> picture-width;
+    in property <float> picture-height;
+    in property <bool> has-detail;
+    in property <bool> busy;
+    callback save();
+    callback remove();
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 18px; spacing: 15px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon {
+                source: root.kind == 1 ? Icons.image : root.kind == 2 ? Icons.folder : Icons.code;
+                ink: Theme.accent; width: 18px;
+            }
+            Text { text: root.has-detail ? root.title : I18n.clipboard-detail; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+            Text { text: root.caption; font-size: 11px; color: Theme.muted; vertical-alignment: center; overflow: elide; min-width: 0px; }
+            Rectangle { horizontal-stretch: 1; }
+            // No copy here: every row in the list beside this one already
+            // carries one, and the item on show is the row that is selected.
+            // Only a picture gets an action of its own, because a picture is
+            // the one kind that cannot leave through the clipboard alone.
+            if root.kind == 1: Action { label: I18n.clipboard-export; icon: Icons.download; primary: true; enabled: root.has-detail && !root.busy; clicked => { root.save(); } }
+            // Throwing one item away belongs where you can see what it is.
+            Action { label: I18n.clipboard-remove; enabled: root.has-detail && !root.busy; clicked => { root.remove(); } }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-detail: EmptyState {
+            tool-key: "clipboard";
+            heading: I18n.clipboard-none-title;
+            description: I18n.clipboard-none-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-detail && root.kind == 1: Rectangle {
+            vertical-stretch: 1;
+            background: Theme.canvas; border-radius: 8px; border-width: 1px; border-color: Theme.border;
+            // `contain` keeps the proportions inside whatever box it is given,
+            // and the box is never larger than the thumbnail's own pixels.
+            Image {
+                source: root.picture; image-fit: contain;
+                width: min(parent.width - 24px, root.picture-width * 1px);
+                height: min(parent.height - 24px, root.picture-height * 1px);
+            }
+        }
+        // Text is shown in the display family rather than in monospace: what
+        // someone copied is as likely to be a Chinese sentence as a command,
+        // and the monospace families have no glyphs for it. Paths are the
+        // exception, and read better aligned.
+        if root.has-detail && root.kind != 1: CodeView {
+            lines: root.lines;
+            family: root.kind == 2 ? Theme.mono-family : Theme.font-family;
+            vertical-stretch: 1;
+        }
+    }
+}

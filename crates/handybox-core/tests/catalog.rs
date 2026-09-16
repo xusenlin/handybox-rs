@@ -9,6 +9,7 @@ fn routes_are_unique_and_only_implemented_tools_are_available() {
         ToolId::Crypto,
         ToolId::Diff,
         ToolId::Codes,
+        ToolId::Clipboard,
     ];
     let mut keys = HashSet::new();
     for tool in TOOLS {

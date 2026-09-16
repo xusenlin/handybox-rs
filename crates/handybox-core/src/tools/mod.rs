@@ -1,3 +1,4 @@
+pub mod clipboard;
 pub mod codes;
 pub mod crypto;
 pub mod diff;
