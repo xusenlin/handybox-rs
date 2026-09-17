@@ -1,0 +1,59 @@
+import { ShareRow } from "../types.slint";
+
+// Everything the LAN share tool owns.
+//
+// The one tool here whose page has two distinct states rather than one: before
+// sharing there is a folder to choose and a button to press, and after it there
+// is an address, a code and a list. `sharing` is what the page switches on, and
+// it is set from the worker — never optimistically from a click — so what is on
+// screen is only ever a server that really is listening.
+export global ShareState {
+    in property <bool> sharing;
+    /// Between the click and the port being open. Distinct from the shell's
+    /// `busy`: the start button becomes a spinner, the rest of the page does not.
+    in property <bool> starting;
+    /// The folder being offered, as a full path. Shown in both states, because
+    /// which folder is open to the network is the thing worth being sure about.
+    in property <string> folder;
+    /// The address to type on the other device, and every address this machine
+    /// answers on when there is more than one.
+    in property <string> address;
+    in property <string> other-addresses;
+    in property <bool> has-other-addresses;
+    /// False when the only address is loopback: this machine is on no network,
+    /// so nothing else can reach it and the page says so instead of offering an
+    /// address that cannot work.
+    in property <bool> reachable;
+    in property <image> qr;
+    in property <bool> has-qr;
+    /// The sentence under the address: what is being shared, and with whom.
+    in property <string> status;
+    in property <[ShareRow]> files;
+    in property <bool> has-files;
+    in property <string> list-error;
+    /// "3 files · 1.2 MB", already in the display language.
+    in property <string> summary;
+    /// The text box. In-out because the page clears it once it has been shared.
+    in-out property <string> draft;
+    in property <bool> can-save-text;
+    /// A shared .txt being read in place. `previewing` is what opens the sheet.
+    in property <bool> previewing;
+    in property <string> preview-name;
+    in property <[string]> preview-lines;
+    callback start();
+    callback stop();
+    callback choose-folder();
+    callback choose-files();
+    callback save-text();
+    callback copy-address();
+    callback open-browser();
+    callback open-folder();
+    /// Read a shared text file in place.
+    callback view(int);
+    /// Show a shared file in the desktop's own file manager.
+    callback reveal(int);
+    /// Move a shared file to the system trash.
+    callback remove(int);
+    callback close-preview();
+    callback copy-preview();
+}

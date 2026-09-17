@@ -13,6 +13,7 @@ fn routes_are_unique_and_only_implemented_tools_are_available() {
         ToolId::Cleanup,
         ToolId::Images,
         ToolId::Archives,
+        ToolId::Share,
     ];
     let mut keys = HashSet::new();
     for tool in TOOLS {
@@ -20,5 +21,5 @@ fn routes_are_unique_and_only_implemented_tools_are_available() {
         assert_eq!(tool.available, ready.contains(&tool.id), "{}", tool.key);
         assert!(!tool.libraries.is_empty());
     }
-    assert_eq!(TOOLS.len(), 9);
+    assert_eq!(TOOLS.len(), 10);
 }

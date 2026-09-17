@@ -11,6 +11,7 @@ pub mod diff;
 pub mod documents;
 pub mod images;
 pub mod json;
+pub mod share;
 
 use crate::locale::{Failure, FailureKind, Message};
 use anyhow::{Context, Result};
@@ -27,6 +28,7 @@ pub enum Command {
     Cleanup(cleanup::Command),
     Images(images::Command),
     Archives(archives::Command),
+    Share(share::Command),
     /// Copying is the same operation whichever tool produced the text, and the
     /// clipboard context is shared, so it lives here rather than in both tools.
     Copy(String),
@@ -42,6 +44,7 @@ pub enum Event {
     Cleanup(cleanup::Event),
     Images(images::Event),
     Archives(archives::Event),
+    Share(share::Event),
     /// A command that only produced a notice: a copy, an export, a cancelled
     /// dialog or a failure. Every tool's busy state ends here.
     Finished(std::result::Result<Message, Failure>),
@@ -58,6 +61,11 @@ pub struct Shared {
     /// Alive only while the clipboard workspace is watching. Dropping it is
     /// what stops the watching thread, so nothing runs when no one asked.
     watcher: Option<WatcherShutdown>,
+    /// Alive only while the LAN share tool is sharing. Holds the async runtime
+    /// and the listening socket, and dropping it closes both — including when
+    /// the window closes and this whole thread goes away, which is what stops
+    /// a quit from leaving a port open.
+    server: Option<handybox_core::tools::share::Server>,
     /// The worker's own command channel, for the watching thread to report a
     /// change through. A change becomes an ordinary job, in turn with the rest.
     commands: mpsc::SyncSender<Command>,
@@ -111,6 +119,7 @@ impl Worker {
                 let mut shared = Shared {
                     clipboard: None,
                     watcher: None,
+                    server: None,
                     commands: reporting,
                 };
                 while let Ok(command) = input.recv() {
@@ -128,6 +137,9 @@ impl Worker {
                             Command::Cleanup(command) => cleanup::execute(command, &output),
                             Command::Images(command) => images::execute(command, &output),
                             Command::Archives(command) => archives::execute(command, &output),
+                            Command::Share(command) => {
+                                share::execute(command, &mut shared, &output)
+                            }
                             Command::Copy(text) => {
                                 let _ = output.send(Event::Finished(shared.copy(text)));
                             }

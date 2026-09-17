@@ -6,8 +6,10 @@ export component Action inherits Rectangle {
     in property <image> icon;
     in property <bool> primary: false;
     in property <bool> enabled: true;
+    in property <bool> quiet: false;
+    in property <bool> destructive: false;
     callback clicked();
-    private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : Theme.ink;
+    private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : root.destructive && touch.has-hover ? Theme.error : root.quiet ? Theme.muted : Theme.ink;
     height: 38px;
     min-width: content.min-width;
     // Buttons size to their label. Without this a layout hands them a share of
@@ -15,8 +17,8 @@ export component Action inherits Rectangle {
     horizontal-stretch: 0;
     border-radius: 7px;
     border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : root.primary ? transparent : Theme.border;
-    background: !root.enabled ? #eef1f3 : root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : touch.has-hover ? Theme.canvas : Theme.surface;
+    border-color: focus.has-focus ? Theme.accent : root.primary || root.quiet ? transparent : Theme.border;
+    background: !root.enabled ? (root.quiet ? transparent : #eef1f3) : root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : touch.has-hover ? (root.destructive ? Theme.removed : root.quiet ? Theme.tint : Theme.canvas) : root.quiet ? transparent : Theme.surface;
     forward-focus: focus;
     accessible-role: button;
     accessible-label: root.label;

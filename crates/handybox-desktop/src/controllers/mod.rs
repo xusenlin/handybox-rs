@@ -9,6 +9,7 @@ pub mod diff;
 pub mod documents;
 pub mod images;
 pub mod json;
+pub mod share;
 
 use crate::{
     AppWindow, I18n, Theme, ToolItem, link,
@@ -191,6 +192,7 @@ struct Tools {
     cleanup: cleanup::Controller,
     images: images::Controller,
     archives: archives::Controller,
+    share: share::Controller,
 }
 
 impl Tools {
@@ -205,6 +207,7 @@ impl Tools {
             cleanup: cleanup::Controller::new(ui),
             images: images::Controller::new(ui),
             archives: archives::Controller::new(ui),
+            share: share::Controller::new(ui),
         }
     }
 
@@ -218,6 +221,7 @@ impl Tools {
         self.cleanup.bind(shell);
         self.images.bind(shell);
         self.archives.bind(shell);
+        self.share.bind(shell);
     }
 
     /// Re-render what every tool derives from its state. Only presentation
@@ -233,6 +237,7 @@ impl Tools {
         self.cleanup.refresh(language);
         self.images.refresh(language);
         self.archives.refresh(language);
+        self.share.refresh(language);
     }
 
     fn handle(&self, shell: &Shell, event: Event) {
@@ -246,7 +251,11 @@ impl Tools {
             Event::Cleanup(event) => self.cleanup.handle(shell, event),
             Event::Images(event) => self.images.handle(shell, event),
             Event::Archives(event) => self.archives.handle(shell, event),
-            Event::Finished(outcome) => shell.finish(outcome),
+            Event::Share(event) => self.share.handle(shell, event),
+            Event::Finished(outcome) => {
+                self.share.finished();
+                shell.finish(outcome);
+            }
         }
     }
 
@@ -257,6 +266,14 @@ impl Tools {
         self.json.tick(shell);
         self.diff.tick(shell);
         self.clipboard.tick(shell);
+        self.share.tick(shell);
+    }
+
+    /// Tell anything that shows text somewhere other than this window to follow
+    /// the new language. Only the LAN share tool has such a surface: the page it
+    /// serves to a phone.
+    fn relanguage(&self, shell: &Shell) {
+        self.share.relanguage(shell);
     }
 
     /// Hand a file to the tool that handles it. The extension is all there is to
@@ -266,6 +283,12 @@ impl Tools {
     /// While one of their pages is showing, a dropped file is its input rather
     /// than something to route away.
     fn open(&self, shell: &Shell, path: PathBuf) {
+        // The LAN share tool claims first, and only while it is actually
+        // sharing: with a folder open to the network, a dropped file has an
+        // obvious destination, and that destination outranks every rule below.
+        if self.share.claims(shell) {
+            return self.share.open(shell, vec![path]);
+        }
         // A folder means something to three tools now, so the page that is
         // showing decides: the image studio lists the pictures in it, Archives
         // packs it, and Disk cleanup — which is what a folder means everywhere
@@ -352,6 +375,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
         bound.refresh_tools();
         bound.refresh_notice();
         relabel.refresh(bound.language());
+        relabel.relanguage(&bound);
     });
     let bound = shell.clone();
     // The toast expires on its own; clearing the message keeps a later refresh

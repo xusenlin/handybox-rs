@@ -1,0 +1,70 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { CodeView } from "code_view.slint";
+import { Icons } from "../icons.slint";
+
+// Reading a shared note without leaving the app.
+//
+// Mounted by the shell as a sibling of the page layout, the same way the toast
+// is: a page is a layout, and anything that has to *cover* one cannot be a row
+// inside it. An earlier version put this in the page and made the page a plain
+// Rectangle to allow it — which stopped the page reporting its own minimum
+// height, so a short window silently overlapped the footnote with the card
+// above it.
+//
+// It fades and rises at the toast's 160ms, so the two things that appear over a
+// page appear the same way.
+export component TextSheet inherits Rectangle {
+    in property <string> title;
+    in property <[string]> lines;
+    in property <bool> busy;
+    callback dismissed();
+    callback copy();
+    background: #26385280;
+    opacity: 0;
+    init => { self.opacity = 1; }
+    animate opacity { duration: 160ms; easing: ease-out; }
+    // Catches every click that misses the sheet, which is what closes it.
+    TouchArea { clicked => { root.dismissed(); } }
+    Rectangle {
+        width: min(600px, root.width - 80px);
+        height: min(440px, root.height - 80px);
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2 + (root.opacity == 1 ? 0px : 8px);
+        animate y { duration: 160ms; easing: ease-out; }
+        border-radius: Theme.radius; background: Theme.surface;
+        border-width: 1px; border-color: Theme.border;
+        // Swallows the click that would otherwise reach the backdrop and close
+        // the sheet the moment someone touches what they are reading.
+        TouchArea {}
+        VerticalLayout {
+            padding: 20px; spacing: 13px;
+            Text {
+                text: root.title;
+                font-size: 15px; font-weight: 700; color: Theme.ink;
+                overflow: elide; min-width: 0px;
+            }
+            Rectangle {
+                vertical-stretch: 1;
+                border-radius: 8px; border-width: 1px;
+                border-color: Theme.border; background: Theme.canvas;
+                CodeView {
+                    x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px;
+                    lines: root.lines; family: Theme.font-family;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                Action { label: I18n.share-close; clicked => { root.dismissed(); } }
+                Action {
+                    label: I18n.share-copy-text; icon: Icons.copy; primary: true;
+                    enabled: !root.busy;
+                    clicked => { root.copy(); }
+                }
+            }
+        }
+    }
+}

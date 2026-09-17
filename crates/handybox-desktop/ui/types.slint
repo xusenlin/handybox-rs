@@ -74,6 +74,18 @@ export struct ClipItem {
     detail: string,
 }
 
+// One file in the shared folder. `tag` is the short word drawn in the row's
+// square — TXT, or the extension — and `is-text` is whether it can be read in
+// place rather than only opened. `index` points back at the entry Rust holds,
+// because the list is re-read on a timer and a row's position is not stable.
+export struct ShareRow {
+    name: string,
+    detail: string,
+    tag: string,
+    is-text: bool,
+    index: int,
+}
+
 // One recognized code. The geometry is a fraction of the picture — 0 is its left
 // or top edge, 1 the right or bottom one — so the same numbers place a marker
 // over a preview of any size. `index` is a string because it is only ever shown,

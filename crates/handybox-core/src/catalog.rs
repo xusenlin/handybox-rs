@@ -10,6 +10,7 @@ pub enum ToolId {
     Codes,
     Cleanup,
     Clipboard,
+    Share,
 }
 
 pub struct ToolDescriptor {
@@ -106,6 +107,17 @@ pub const TOOLS: &[ToolDescriptor] = &[
         subtitle: "A temporary workspace for the things you copy.",
         libraries: "clipboard-rs",
         capabilities: "Inspect text, images and file references\nCollect and copy items manually\nOpt-in session history",
+        available: true,
+    },
+    ToolDescriptor {
+        id: ToolId::Share,
+        key: "share",
+        name: "LAN share",
+        subtitle: "Hand files to the other devices on your network.",
+        // The only tool here that opens a port. It stays shut until someone
+        // starts sharing, and closes again the moment they stop.
+        libraries: "axum + tokio",
+        capabilities: "Share a folder over the local network, off by default\nOpen the address on a phone, or scan the QR code\nSend files and text both ways, with no sign-in",
         available: true,
     },
 ];

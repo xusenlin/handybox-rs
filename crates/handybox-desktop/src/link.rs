@@ -35,3 +35,27 @@ pub fn open(url: &str) -> Result<()> {
         .with_context(|| format!("Could not open {url}"))?;
     Ok(())
 }
+
+/// Select a file in the file manager without launching its default handler.
+pub fn reveal(path: &std::path::Path) -> Result<()> {
+    let mut command = if cfg!(target_os = "macos") {
+        let mut cmd = Command::new("open");
+        cmd.arg("-R").arg(path);
+        cmd
+    } else if cfg!(target_os = "windows") {
+        let mut cmd = Command::new("explorer.exe");
+        cmd.arg(format!("/select,{}", path.display()));
+        cmd
+    } else {
+        let mut cmd = Command::new("xdg-open");
+        cmd.arg(path.parent().context("File has no parent folder")?);
+        cmd
+    };
+    command
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .with_context(|| format!("Could not show {}", path.display()))?;
+    Ok(())
+}

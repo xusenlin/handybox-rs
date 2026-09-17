@@ -1,0 +1,100 @@
+import { ListView } from "std-widgets.slint";
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { EmptyState } from "empty_state.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+import { ShareRow } from "../types.slint";
+
+// What is in the shared folder right now, from either side: a file dropped on
+// this window and a file a phone uploaded arrive in the same list.
+//
+// Like CodeView and CleanupList, the `for` is the direct child of the ListView,
+// which is what compiles it into a virtualized repeater — the list is re-read
+// every couple of seconds, so a folder with a few thousand files in it must not
+// rebuild a few thousand rows.
+export component SharePanel inherits Rectangle {
+    in property <[ShareRow]> rows;
+    in property <bool> has-files;
+    in property <bool> sharing;
+    in property <bool> busy;
+    in property <string> summary;
+    in property <string> error;
+    callback choose-files();
+    callback open-folder();
+    callback view(int);
+    callback reveal(int);
+    callback remove(int);
+    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    VerticalLayout {
+        padding: 22px; spacing: 18px;
+        HorizontalLayout {
+            spacing: 9px;
+            Icon { source: Icons.folder; ink: Theme.accent; width: 18px; }
+            VerticalLayout {
+                spacing: 4px; alignment: center;
+                Text { text: I18n.share-contents; font-size: 14px; font-weight: 700; color: Theme.ink; }
+                Text { text: root.summary; font-size: 11px; color: Theme.muted; overflow: elide; min-width: 0px; }
+            }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            Action { primary: true; label: I18n.share-add-files; icon: Icons.file-import; enabled: root.sharing && !root.busy; clicked => { root.choose-files(); } }
+            Action { quiet: true; label: I18n.share-open-folder; icon: Icons.folder; enabled: !root.busy; clicked => { root.open-folder(); } }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+        if !root.has-files: EmptyState {
+            tool-key: "share";
+            heading: root.error != "" ? I18n.share-unavailable : root.sharing ? I18n.share-empty-title : I18n.share-idle-title;
+            description: root.error != "" ? root.error : root.sharing ? I18n.share-empty-hint : I18n.share-idle-hint;
+            vertical-stretch: 1;
+        }
+        if root.has-files: Rectangle {
+            vertical-stretch: 1;
+            ListView {
+                x: 0px; y: 0px;
+                width: parent.width; height: parent.height;
+                for row in root.rows: Rectangle {
+                    width: parent.visible-width - 8px;
+                    height: 80px;
+                    border-radius: 8px;
+                    background: hover.has-hover ? Theme.canvas : transparent;
+                    hover := TouchArea { mouse-cursor: default; }
+                    HorizontalLayout {
+                        padding: 12px; spacing: 12px;
+                        Rectangle {
+                            width: 38px; height: 38px; border-radius: 8px;
+                            background: row.is-text ? Theme.tint : #eceff3;
+                            y: (parent.height - self.height) / 2;
+                            Text {
+                                text: row.tag;
+                                font-size: 9px; font-weight: 700;
+                                color: row.is-text ? Theme.accent : Theme.muted;
+                                horizontal-alignment: center; vertical-alignment: center;
+                                width: parent.width; height: parent.height;
+                                overflow: clip;
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 1; spacing: 6px;
+                            Text { text: row.name; color: Theme.ink; font-size: 13px; font-weight: 600; overflow: elide; min-width: 0px; }
+                            Text { text: row.detail; color: Theme.muted; font-size: 11px; overflow: elide; min-width: 0px; }
+                        }
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                if row.is-text: Action { quiet: true; label: I18n.share-view; icon: Icons.eye; enabled: !root.busy; clicked => { root.view(row.index); } }
+                                Action { quiet: true; label: I18n.share-reveal; icon: Icons.external; enabled: !root.busy; clicked => { root.reveal(row.index); } }
+                                Action { quiet: true; destructive: true; label: I18n.share-remove; icon: Icons.trash; enabled: !root.busy; clicked => { root.remove(row.index); } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -4,7 +4,7 @@ use handybox_core::{
     tools::{
         archives::ArchiveIssue, cleanup::CleanupIssue, clipboard::ClipboardIssue,
         codes::CodesIssue, crypto::CryptoIssue, diff::DiffIssue, documents::DocumentIssue,
-        images::ImageIssue, json::JsonIssue,
+        images::ImageIssue, json::JsonIssue, share::ShareIssue,
     },
 };
 use std::path::PathBuf;
@@ -108,6 +108,11 @@ pub fn tool_text(
             "为复制的内容提供一个临时工作区。",
             "文本、图片与文件内容查看\n手动收集与内容复制\n可选择启用的会话历史",
         ),
+        ToolId::Share => (
+            "局域网共享",
+            "把文件递给同一网络下的其他设备。",
+            "在局域网内共享一个文件夹，默认不开启\n用手机打开地址，或扫描二维码\n双向传输文件与文字，无需登录",
+        ),
     }
 }
 
@@ -150,6 +155,11 @@ pub enum FailureKind {
     Cleanup(CleanupIssue),
     Image(ImageIssue),
     Archive(ArchiveIssue),
+    Share(ShareIssue),
+    /// An action that only means anything while sharing was asked for after it
+    /// stopped. Its own kind rather than a `ShareIssue`, because nothing in the
+    /// engine can produce it: it is about what the desktop was doing.
+    NotSharing,
     /// The OS clipboard could not be reached at all — which any tool can run
     /// into, because every one of them can copy its result.
     ClipboardAccess,
@@ -252,6 +262,31 @@ impl Failure {
                 .map(FailureKind::Archive),
             error,
         )
+    }
+
+    pub fn share(error: anyhow::Error) -> Self {
+        Self::new(
+            error
+                .downcast_ref::<ShareIssue>()
+                .copied()
+                .map(FailureKind::Share),
+            error,
+        )
+    }
+
+    /// Sharing stopped between the click and the job reaching the worker, or
+    /// the page asked for something that only exists while it is running.
+    pub fn not_sharing() -> Self {
+        Self {
+            kind: FailureKind::NotSharing,
+            detail: String::new(),
+        }
+    }
+
+    /// Something the operating system refused to do for us, with its own
+    /// complaint kept as the detail.
+    pub fn operation(error: anyhow::Error) -> Self {
+        Self::new(Some(FailureKind::Operation), error)
     }
 
     fn new(kind: Option<FailureKind>, error: anyhow::Error) -> Self {
@@ -442,6 +477,37 @@ impl Failure {
                 ArchiveIssue::SaveOutput => "无法保存到目标文件。",
             }
             .into(),
+            FailureKind::Share(issue) if !lang.chinese() => issue.to_string(),
+            FailureKind::Share(issue) => match issue {
+                ShareIssue::FolderCreate => "无法创建共享文件夹，请另选一个。",
+                ShareIssue::FolderSymlink => "共享文件夹不能是符号链接。",
+                ShareIssue::FolderReadOnly => "共享文件夹不可写入，请另选一个。",
+                ShareIssue::FolderRead => "无法读取共享文件夹。",
+                ShareIssue::PortsBusy => "该端口及其后 20 个端口都已被占用。",
+                ShareIssue::ServerStart => "无法启动共享服务。",
+                ShareIssue::ServerStopped => "共享服务意外停止。",
+                ShareIssue::InvalidName => "文件名无效：不支持路径、隐藏文件和特殊字符。",
+                ShareIssue::ReservedName => "该名称在 Windows 上是保留名。",
+                ShareIssue::Refused => "该请求不是来自共享页面，已拒绝。",
+                ShareIssue::NotFile => "请选择文件；文件夹请先压缩。",
+                ShareIssue::TooLarge => "单个文件不能超过 10 GiB。",
+                ShareIssue::TextEmpty => "请先输入一些文字。",
+                ShareIssue::TextTooLarge => "文字不能超过 1 MiB。",
+                ShareIssue::NameCollision => "同名文件过多，请重命名后重试。",
+                ShareIssue::FileMissing => "该文件已不在共享文件夹中。",
+                ShareIssue::Read => "无法读取该文件。",
+                ShareIssue::Write => "无法写入共享文件夹。",
+                ShareIssue::Delete => "无法将该文件移到回收站。",
+                ShareIssue::QrTooLong => "该地址过长，无法生成二维码。",
+                ShareIssue::UploadFailed => "上传未完整送达，请重试。",
+            }
+            .into(),
+            FailureKind::NotSharing => lang
+                .text(
+                    "Sharing has stopped. Start it again to use the shared folder.",
+                    "共享已停止。请重新开始共享后再操作。",
+                )
+                .into(),
             FailureKind::ClipboardAccess => lang
                 .text("Could not access the clipboard.", "无法访问剪贴板。")
                 .into(),
@@ -542,6 +608,22 @@ pub enum Message {
     },
     NothingFound,
     NoPictures,
+    /// The LAN share tool is opening the folder to the network, or has stopped.
+    Starting,
+    Sharing,
+    Stopped,
+    /// The server stopped without being asked. An error, unlike [`Self::Stopped`].
+    Lost,
+    /// What actually went into the shared folder. A batch dropped on the window
+    /// can hold something this tool will not take, so the count that failed is
+    /// part of the outcome rather than a separate complaint.
+    Shared {
+        files: usize,
+        failed: usize,
+        /// The first name as it landed, which is not always the name it had:
+        /// two phones can upload the same file name.
+        first: Option<String>,
+    },
     Saved(PathBuf),
     Cancelled,
     Complete,
@@ -574,6 +656,10 @@ impl Message {
                 | Self::Packed { .. }
                 | Self::NothingFound
                 | Self::NoPictures
+                | Self::Sharing
+                | Self::Stopped
+                | Self::Lost
+                | Self::Shared { .. }
                 | Self::Error(_)
         )
     }
@@ -581,12 +667,13 @@ impl Message {
     pub fn is_long_notice(&self) -> bool {
         matches!(
             self,
-            Self::Exported { .. } | Self::Unpacked { .. } | Self::Packed { .. }
+            Self::Exported { .. } | Self::Unpacked { .. } | Self::Packed { .. } | Self::Sharing
         )
     }
 
     pub fn is_error_notice(&self) -> bool {
-        matches!(self, Self::Error(_))
+        matches!(self, Self::Error(_) | Self::Lost)
+            || matches!(self, Self::Shared { failed, .. } if *failed > 0)
             || matches!(self, Self::Exported { failed, .. } if *failed > 0)
             || matches!(self, Self::Unpacked { failed, refused, .. } if *failed > 0 || *refused > 0)
             || matches!(self, Self::Packed { failed, .. } if *failed > 0)
@@ -637,6 +724,54 @@ impl Message {
                 "Nothing to clean up here. This folder holds no duplicates.",
                 "这里没有需要清理的内容，该文件夹中没有重复文件。",
             ),
+            Self::Starting => lang.text(
+                "Opening the folder to your network…",
+                "正在把文件夹开放到你的网络…",
+            ),
+            Self::Sharing => lang.text(
+                "Sharing. Open the address on another device on this network — anyone who can reach it can add and download files.",
+                "已开始共享。在本网络的其他设备上打开该地址即可 —— 能访问到的人都可以上传和下载文件。",
+            ),
+            Self::Stopped => lang.text(
+                "Sharing stopped. The port is closed and nothing is reachable.",
+                "共享已停止，端口已关闭，外部无法再访问。",
+            ),
+            Self::Lost => lang.text(
+                "Sharing stopped unexpectedly. Start it again to keep sharing.",
+                "共享意外中断，请重新开始共享。",
+            ),
+            Self::Shared {
+                files,
+                failed,
+                first,
+            } => {
+                let count = |count: usize| {
+                    if count == 1 {
+                        lang.text("file", "个文件")
+                    } else {
+                        lang.text("files", "个文件")
+                    }
+                };
+                // The name is worth saying when there is exactly one, because it
+                // is not always the name the file had: an upload never
+                // overwrites, so a second `notes.txt` lands as `notes (1).txt`.
+                let mut message = match (files, first) {
+                    (1, Some(name)) => format!("{} {name}", lang.text("Shared", "已共享")),
+                    _ => format!(
+                        "{} {files} {}",
+                        lang.text("Shared", "已共享"),
+                        count(*files)
+                    ),
+                };
+                if *failed > 0 {
+                    message.push_str(&format!(
+                        "  ·  {failed} {} {}",
+                        count(*failed),
+                        lang.text("could not be shared", "无法共享")
+                    ));
+                }
+                return message;
+            }
             Self::Copied => lang.text("Copied to your clipboard.", "已复制到剪贴板。"),
             Self::Collected => lang.text(
                 "Added to your clipboard workspace.",

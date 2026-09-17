@@ -1,0 +1,109 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+
+// A stable connection card: status and folder stay in place when sharing starts.
+export component AddressCard inherits Rectangle {
+    in property <bool> sharing;
+    in property <bool> starting;
+    in property <bool> busy;
+    in property <bool> reachable;
+    in property <string> folder;
+    in property <string> address;
+    in property <string> other-addresses;
+    in property <bool> has-other-addresses;
+    in property <image> qr;
+    in property <bool> has-qr;
+    in property <string> status;
+    callback start-sharing();
+    callback stop-sharing();
+    callback choose-folder();
+    callback copy-address();
+    callback open-browser();
+    border-radius: Theme.radius; border-width: 1px;
+    border-color: root.sharing ? #c5d3df : Theme.border;
+    background: Theme.surface;
+    vertical-stretch: 0;
+    animate border-color { duration: 180ms; easing: ease-out; }
+
+    VerticalLayout {
+        padding: 20px; spacing: 16px;
+        HorizontalLayout {
+            spacing: 8px;
+            Rectangle {
+                width: state-label.preferred-width + 15px; height: 38px;
+                horizontal-stretch: 0;
+                Rectangle {
+                    x: 0px; y: (parent.height - self.height) / 2;
+                    width: 7px; height: 7px; border-radius: 4px;
+                    background: root.sharing ? Theme.success : #a3aeb8;
+                }
+                state-label := Text {
+                    x: 15px; y: 0px; width: parent.width - 15px; height: parent.height;
+                    text: root.starting ? I18n.share-starting : root.sharing ? I18n.share-on : I18n.share-off;
+                    font-size: 13px; font-weight: 700; color: Theme.ink; vertical-alignment: center;
+                }
+            }
+            Rectangle { horizontal-stretch: 1; }
+            Action {
+                label: root.sharing ? I18n.share-stop : I18n.share-start;
+                icon: root.sharing ? Icons.stop : Icons.play;
+                primary: !root.sharing;
+                enabled: !root.busy && !root.starting;
+                clicked => { if root.sharing { root.stop-sharing(); } else { root.start-sharing(); } }
+            }
+        }
+        Rectangle {
+            height: 44px; border-radius: 6px; background: Theme.canvas;
+            HorizontalLayout {
+                padding-left: 9px; padding-right: 4px; spacing: 7px;
+                Icon { source: Icons.folder; width: 14px; ink: Theme.muted; }
+                Text {
+                    text: root.folder; font-size: 11px; color: Theme.muted;
+                    overflow: elide; min-width: 0px; horizontal-stretch: 1; vertical-alignment: center;
+                    accessible-description: root.folder;
+                }
+                if !root.sharing: VerticalLayout {
+                    alignment: center; horizontal-stretch: 0;
+                    Action {
+                        quiet: true; label: I18n.share-change-folder;
+                        enabled: !root.busy && !root.starting; clicked => { root.choose-folder(); }
+                    }
+                }
+            }
+        }
+        if root.sharing: VerticalLayout {
+            spacing: 14px;
+            Text { text: I18n.share-address-label; font-size: 10px; font-weight: 600; color: Theme.muted; }
+            Text {
+                text: root.address; font-size: 16px; font-weight: 700; color: Theme.accent;
+                font-family: Theme.mono-family; wrap: word-wrap; min-width: 0px;
+            }
+            HorizontalLayout {
+                spacing: 24px;
+                // Draw at the native pixel size on white: scaling the QR or
+                // placing transparent dark modules on dark ink hurts scanning.
+                if root.has-qr: Rectangle {
+                    width: root.qr.width * 1px + 2px; height: root.qr.height * 1px + 2px; border-radius: 8px;
+                    border-width: 1px; border-color: Theme.border; background: white;
+                    Image { x: 1px; y: 1px; source: root.qr; width: root.qr.width * 1px; height: root.qr.height * 1px; image-fit: contain; }
+                }
+                VerticalLayout {
+                    alignment: center; spacing: 12px;
+                    Action { label: I18n.share-copy-address; icon: Icons.copy; clicked => { root.copy-address(); } }
+                    Action { quiet: true; label: I18n.share-open-browser; icon: Icons.external; clicked => { root.open-browser(); } }
+                }
+                Rectangle { horizontal-stretch: 1; }
+            }
+            if root.has-other-addresses: Text {
+                text: root.other-addresses; font-size: 10px; color: Theme.muted; wrap: word-wrap; min-width: 0px;
+            }
+        }
+        if !root.sharing || !root.reachable: Text {
+            text: root.status; font-size: 11px; wrap: word-wrap; min-width: 0px;
+            color: root.reachable ? Theme.muted : Theme.error;
+        }
+    }
+}
