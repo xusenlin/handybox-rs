@@ -9,7 +9,7 @@ export component PageHeader inherits VerticalLayout {
         spacing: 12px;
         Text { text: root.heading; color: Theme.ink; font-size: 27px; font-weight: 700; vertical-alignment: center; }
         Rectangle { horizontal-stretch: 1; }
-        Badge { label: root.badge; highlighted: true; }
+        if root.badge != "": Badge { label: root.badge; highlighted: true; }
     }
     Text { text: root.description; color: Theme.muted; font-size: Theme.body; wrap: word-wrap; min-width: 0px; }
 }

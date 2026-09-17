@@ -1,8 +1,8 @@
-import { ListView } from "std-widgets.slint";
+import { ListView, ScrollView } from "std-widgets.slint";
 import { I18n } from "../i18n.slint";
 import { Theme } from "../theme.slint";
-import { Action } from "action.slint";
-import { EmptyState } from "empty_state.slint";
+import { ShareAction } from "share_action.slint";
+import { ShareTheme } from "share_theme.slint";
 import { Icon } from "icon.slint";
 import { Icons } from "../icons.slint";
 import { ShareRow } from "../types.slint";
@@ -21,37 +21,71 @@ export component SharePanel inherits Rectangle {
     in property <bool> busy;
     in property <string> summary;
     in property <string> error;
+    in property <string> folder;
+    in property <bool> starting;
+    callback choose-folder();
     callback open-folder();
     callback view(int);
     callback reveal(int);
     callback remove(int);
-    border-radius: Theme.radius; border-width: 1px; border-color: Theme.border; background: Theme.surface;
+    border-radius: ShareTheme.radius; border-width: 1px; border-color: ShareTheme.border; background: Theme.surface;
     VerticalLayout {
-        padding: 22px; spacing: 18px;
+        padding: 18px; spacing: 10px;
         HorizontalLayout {
-            spacing: 9px;
-            Icon { source: Icons.folder; ink: Theme.accent; width: 18px; }
+            spacing: 12px;
+            Rectangle {
+                width: 42px; height: 42px; border-radius: 13px; background: ShareTheme.tint;
+                Icon { source: Icons.folder; ink: ShareTheme.accent; width: 22px; height: 22px; x: 10px; y: 10px; }
+            }
             VerticalLayout {
                 spacing: 4px; alignment: center;
-                Text { text: I18n.share-contents; font-size: 14px; font-weight: 700; color: Theme.ink; }
-                Text { text: root.summary; font-size: 11px; color: Theme.muted; overflow: elide; min-width: 0px; }
+                Text { text: I18n.share-contents; font-size: 18px; font-weight: 700; color: ShareTheme.ink; }
+                Text { text: root.summary; font-size: 11px; color: ShareTheme.muted; overflow: elide; min-width: 0px; }
             }
             Rectangle { horizontal-stretch: 1; }
+            Rectangle {
+                width: status-label.preferred-width + 25px; height: 26px; border-radius: 13px;
+                background: ShareTheme.tint;
+                Rectangle { x: 9px; y: 10px; width: 5px; height: 5px; border-radius: 3px; background: root.sharing ? ShareTheme.accent : ShareTheme.muted; }
+                status-label := Text {
+                    x: 19px; height: parent.height;
+                    text: root.starting ? I18n.share-starting : root.sharing ? I18n.share-on : I18n.share-off;
+                    font-size: 10px; color: ShareTheme.ink; vertical-alignment: center;
+                }
+            }
         }
-        // Adding files belongs to the drop card beside this list, which is both
-        // the drop target and the file picker; what is left here is the way out
-        // to the folder itself.
+        Rectangle { height: 1px; background: ShareTheme.border; }
         HorizontalLayout {
-            spacing: 10px;
-            Action { quiet: true; label: I18n.share-open-folder; icon: Icons.folder; enabled: !root.busy; clicked => { root.open-folder(); } }
+            spacing: 12px;
+            Text { text: I18n.share-list-heading; font-size: 10px; color: ShareTheme.muted; }
             Rectangle { horizontal-stretch: 1; }
+            if root.sharing: Text { text: I18n.share-sync-hint; font-size: 10px; color: ShareTheme.muted; }
         }
-        Rectangle { height: 1px; background: Theme.border; }
-        if !root.has-files: EmptyState {
-            tool-key: "share";
-            heading: root.error != "" ? I18n.share-unavailable : root.sharing ? I18n.share-empty-title : I18n.share-idle-title;
-            description: root.error != "" ? root.error : root.sharing ? I18n.share-empty-hint : I18n.share-idle-hint;
+        if !root.has-files: empty-scroll := ScrollView {
             vertical-stretch: 1;
+            viewport-width: self.visible-width;
+            viewport-height: max(self.visible-height, empty-message.preferred-height);
+            empty-message := VerticalLayout {
+                width: empty-scroll.visible-width; height: empty-scroll.viewport-height;
+                padding: 8px; spacing: 12px; alignment: center;
+                if empty-scroll.visible-height > 160px: HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 52px; height: 52px; border-radius: 16px; background: ShareTheme.tint;
+                        Icon { source: root.error != "" ? Icons.alert : Icons.share; ink: ShareTheme.accent; width: 26px; height: 26px; x: 13px; y: 13px; }
+                    }
+                }
+                Text {
+                    text: root.error != "" ? I18n.share-unavailable : root.sharing ? I18n.share-empty-title : I18n.share-idle-title;
+                    color: ShareTheme.ink; font-size: 15px; font-weight: 600;
+                    horizontal-alignment: center; wrap: word-wrap; min-width: 0px;
+                }
+                Text {
+                    text: root.error != "" ? root.error : root.sharing ? I18n.share-empty-hint : I18n.share-idle-hint;
+                    color: ShareTheme.muted; font-size: 12px;
+                    horizontal-alignment: center; wrap: word-wrap; min-width: 0px;
+                }
+            }
         }
         if root.has-files: Rectangle {
             vertical-stretch: 1;
@@ -60,42 +94,63 @@ export component SharePanel inherits Rectangle {
                 width: parent.width; height: parent.height;
                 for row in root.rows: Rectangle {
                     width: parent.visible-width - 8px;
-                    height: 80px;
-                    border-radius: 8px;
-                    background: hover.has-hover ? Theme.canvas : transparent;
+                    height: 76px;
+                    Rectangle {
+                        height: parent.height - 8px; width: parent.width;
+                        border-radius: 12px;
+                        background: hover.has-hover ? ShareTheme.tint : Theme.canvas;
+                    }
                     hover := TouchArea { mouse-cursor: default; }
                     HorizontalLayout {
-                        padding: 12px; spacing: 12px;
+                        padding: 10px; padding-bottom: 18px; spacing: 12px;
                         Rectangle {
-                            width: 38px; height: 38px; border-radius: 8px;
+                            width: 40px; height: 46px; border-radius: 11px;
                             background: row.is-text ? Theme.tint : #eceff3;
-                            y: (parent.height - self.height) / 2;
-                            Text {
-                                text: row.tag;
-                                font-size: 9px; font-weight: 700;
-                                color: row.is-text ? Theme.accent : Theme.muted;
-                                horizontal-alignment: center; vertical-alignment: center;
-                                width: parent.width; height: parent.height;
-                                overflow: clip;
+                            y: (parent.height - self.height - 8px) / 2;
+                            VerticalLayout {
+                                padding: 5px; spacing: 3px;
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Icon { source: Icons.document; ink: row.is-text ? ShareTheme.accent : Theme.muted; width: 20px; height: 22px; }
+                                }
+                                Text {
+                                    text: row.tag; font-size: 8px; font-weight: 600;
+                                    color: row.is-text ? ShareTheme.accent : Theme.muted;
+                                    horizontal-alignment: center; overflow: clip; min-width: 0px;
+                                }
                             }
                         }
                         VerticalLayout {
                             alignment: center; horizontal-stretch: 1; spacing: 6px;
-                            Text { text: row.name; color: Theme.ink; font-size: 13px; font-weight: 600; overflow: elide; min-width: 0px; }
-                            Text { text: row.detail; color: Theme.muted; font-size: 11px; overflow: elide; min-width: 0px; }
+                            Text { text: row.name; color: ShareTheme.ink; font-size: 13px; font-weight: 600; overflow: elide; min-width: 0px; }
+                            Text { text: row.detail; color: ShareTheme.muted; font-size: 11px; overflow: elide; min-width: 0px; }
                         }
                         VerticalLayout {
                             alignment: center; horizontal-stretch: 0;
                             HorizontalLayout {
-                                spacing: 8px;
-                                if row.is-text: Action { quiet: true; label: I18n.share-view; icon: Icons.eye; enabled: !root.busy; clicked => { root.view(row.index); } }
-                                Action { quiet: true; label: I18n.share-reveal; icon: Icons.external; enabled: !root.busy; clicked => { root.reveal(row.index); } }
-                                Action { quiet: true; destructive: true; label: I18n.share-remove; icon: Icons.trash; enabled: !root.busy; clicked => { root.remove(row.index); } }
+                                spacing: 0px;
+                                if row.is-text: ShareAction { quiet: true; label: I18n.share-view; icon: Icons.eye; enabled: !root.busy; clicked => { root.view(row.index); } }
+                                ShareAction { quiet: true; label: I18n.share-reveal; icon: Icons.external; enabled: !root.busy; clicked => { root.reveal(row.index); } }
+                                ShareAction { quiet: true; destructive: true; label: I18n.share-remove; icon: Icons.trash; enabled: !root.busy; clicked => { root.remove(row.index); } }
                             }
                         }
                     }
                 }
             }
+        }
+        Rectangle { height: 1px; background: ShareTheme.border; }
+        HorizontalLayout {
+            spacing: 6px;
+            VerticalLayout {
+                spacing: 4px; alignment: center; horizontal-stretch: 1;
+                Text { text: I18n.share-storage-hint; color: ShareTheme.muted; font-size: 10px; }
+                Text { text: root.folder; color: ShareTheme.muted; font-size: 10px; overflow: elide; min-width: 0px; accessible-description: root.folder; }
+            }
+            if !root.sharing: ShareAction {
+                quiet: true; label: I18n.share-change-folder;
+                enabled: !root.busy && !root.starting; clicked => { root.choose-folder(); }
+            }
+            ShareAction { quiet: true; label: I18n.share-open-folder; icon: Icons.folder; enabled: !root.busy; clicked => { root.open-folder(); } }
         }
     }
 }

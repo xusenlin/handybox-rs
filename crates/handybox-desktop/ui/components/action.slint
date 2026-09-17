@@ -8,8 +8,15 @@ export component Action inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> quiet: false;
     in property <bool> destructive: false;
+    in property <color> ink-color: Theme.ink;
+    in property <color> muted-color: Theme.muted;
+    in property <color> accent-color: Theme.accent;
+    in property <color> accent-hover-color: Theme.accent-hover;
+    in property <color> surface-color: Theme.surface;
+    in property <color> border-ink: Theme.border;
+    in property <color> hover-color: root.quiet ? Theme.tint : Theme.canvas;
     callback clicked();
-    private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : root.destructive && touch.has-hover ? Theme.error : root.quiet ? Theme.muted : Theme.ink;
+    private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : root.destructive && touch.has-hover ? Theme.error : root.quiet ? root.muted-color : root.ink-color;
     height: 38px;
     min-width: content.min-width;
     // Buttons size to their label. Without this a layout hands them a share of
@@ -17,18 +24,18 @@ export component Action inherits Rectangle {
     horizontal-stretch: 0;
     border-radius: 7px;
     border-width: 1px;
-    border-color: focus.has-focus ? Theme.accent : root.primary || root.quiet ? transparent : Theme.border;
-    background: !root.enabled ? (root.quiet ? transparent : #eef1f3) : root.primary ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : touch.has-hover ? (root.destructive ? Theme.removed : root.quiet ? Theme.tint : Theme.canvas) : root.quiet ? transparent : Theme.surface;
+    border-color: focus.has-focus ? root.accent-color : root.primary || root.quiet ? transparent : root.border-ink;
+    background: !root.enabled ? (root.quiet ? transparent : #eef1f3) : root.primary ? (touch.has-hover ? root.accent-hover-color : root.accent-color) : touch.has-hover ? (root.destructive ? Theme.removed : root.hover-color) : root.quiet ? transparent : root.surface-color;
     forward-focus: focus;
     accessible-role: button;
     accessible-label: root.label;
     accessible-enabled: root.enabled;
     accessible-action-default => { if root.enabled { root.clicked(); } }
     content := HorizontalLayout {
-        padding-left: 13px; padding-right: 13px; spacing: 7px;
+        padding-left: 13px; padding-right: 13px; spacing: 7px; alignment: center;
         if root.icon.width > 0: Icon { source: root.icon; ink: root.ink; width: 15px; }
         Text {
-            text: root.label;
+            text: root.label; horizontal-stretch: 0;
             color: root.ink;
             font-size: Theme.small; font-weight: 600;
             vertical-alignment: center; horizontal-alignment: center;

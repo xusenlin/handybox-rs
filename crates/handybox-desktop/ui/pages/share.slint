@@ -5,119 +5,117 @@ import { PageHeader } from "../components/page_header.slint";
 import { AddressCard } from "../components/address_card.slint";
 import { SharePanel } from "../components/share_panel.slint";
 import { DropZone } from "../components/drop_zone.slint";
-import { Action } from "../components/action.slint";
+import { ShareAction } from "../components/share_action.slint";
+import { ShareTheme } from "../components/share_theme.slint";
 import { Icon } from "../components/icon.slint";
 import { Icons } from "../icons.slint";
 import { ShareState } from "../state/share.slint";
 
-export component SharePage inherits VerticalLayout {
+export component SharePage inherits Rectangle {
     in property <bool> busy;
     in property <bool> dragging;
-    padding: Theme.page-padding; spacing: 22px;
-    PageHeader { heading: I18n.share-title; description: I18n.share-description; badge: I18n.share-badge; }
-    HorizontalLayout {
-        spacing: 24px; vertical-stretch: 1; min-height: 260px;
-        // The controls on the left keep a fixed share of the page: the address
-        // is a fixed-width thing and the list beside it is not, so giving the
-        // list the stretch is what keeps a long file name from squeezing the
-        // address out of shape.
-        // A short window or multiple network addresses scrolls this column,
-        // keeping its editor and actions away from the page footer.
-        controls := ScrollView {
-            width: 400px; horizontal-stretch: 0;
-            viewport-width: self.visible-width;
-            viewport-height: max(self.visible-height, left-column.preferred-height);
-            left-column := VerticalLayout {
-                width: controls.visible-width; height: controls.viewport-height;
-                spacing: 24px;
-                // The scroll bar is drawn over the viewport, so the cards stop
-                // short of it rather than having a bar lie across their border.
-                padding-right: 14px;
-                AddressCard {
-                    sharing: ShareState.sharing;
-                    starting: ShareState.starting;
-                    busy: root.busy;
-                    reachable: ShareState.reachable;
-                    folder: ShareState.folder;
-                    address: ShareState.address;
-                    other-addresses: ShareState.other-addresses;
-                    has-other-addresses: ShareState.has-other-addresses;
-                    qr: ShareState.qr;
-                    has-qr: ShareState.has-qr;
-                    status: ShareState.status;
-                    start-sharing => { ShareState.start(); }
-                    stop-sharing => { ShareState.stop(); }
-                    choose-folder => { ShareState.choose-folder(); }
-                    copy-address => { ShareState.copy-address(); }
-                    open-browser => { ShareState.open-browser(); }
+    background: ShareTheme.canvas;
+    VerticalLayout {
+        padding: 24px; spacing: 16px;
+        HorizontalLayout {
+            spacing: 20px;
+            PageHeader { horizontal-stretch: 1; heading: I18n.share-title; description: I18n.share-description; badge: ""; }
+            VerticalLayout {
+                alignment: center; horizontal-stretch: 0;
+                ShareAction {
+                    label: ShareState.sharing ? I18n.share-stop : I18n.share-start;
+                    icon: ShareState.sharing ? Icons.stop : Icons.play;
+                    primary: !ShareState.sharing;
+                    enabled: !root.busy && !ShareState.starting;
+                    clicked => { if ShareState.sharing { ShareState.stop(); } else { ShareState.start(); } }
                 }
-                // Files arrive here, and only here: the drop is a copy into the
-                // shared folder, which has nothing to do with the text box below.
-                DropZone {
-                    sharing: ShareState.sharing;
-                    busy: root.busy;
-                    dragging: root.dragging;
-                    choose => { ShareState.choose-files(); }
-                }
-                // Text goes in as a .txt, so that the other device gets one kind of
-                // thing to download rather than two kinds of thing to understand.
-                Rectangle {
-                    vertical-stretch: 1; min-height: 206px;
-                    border-radius: Theme.radius; border-width: 1px;
-                    border-color: Theme.border;
-                    background: Theme.surface;
-                    VerticalLayout {
-                        padding: 22px; spacing: 16px;
-                        HorizontalLayout {
-                            spacing: 9px;
-                            Icon { source: Icons.document; ink: Theme.accent; width: 18px; }
-                            Text { text: I18n.share-text-title; font-size: 14px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
-                            Rectangle { horizontal-stretch: 1; }
-                            Action {
-                                label: I18n.share-save-text; icon: Icons.arrow-right; primary: true;
+            }
+        }
+        AddressCard {
+            sharing: ShareState.sharing;
+            reachable: ShareState.reachable;
+            address: ShareState.address;
+            qr: ShareState.qr;
+            has-qr: ShareState.has-qr;
+            status: ShareState.status;
+            copy-address => { ShareState.copy-address(); }
+            open-browser => { ShareState.open-browser(); }
+        }
+        HorizontalLayout {
+            spacing: 20px; vertical-stretch: 1; min-height: 260px;
+            // Only the input column scrolls at short window heights; the file
+            // list keeps its own virtualized viewport and accessible footer.
+            controls := ScrollView {
+                width: 300px; horizontal-stretch: 0;
+                viewport-width: self.visible-width;
+                viewport-height: max(self.visible-height, left-column.preferred-height);
+                left-column := VerticalLayout {
+                    width: controls.visible-width; height: controls.viewport-height;
+                    spacing: 16px; padding-right: 12px;
+                    DropZone {
+                        sharing: ShareState.sharing;
+                        busy: root.busy;
+                        dragging: root.dragging;
+                        choose => { ShareState.choose-files(); }
+                    }
+                    Rectangle {
+                        vertical-stretch: 1; min-height: 216px;
+                        border-radius: ShareTheme.radius; border-width: 1px;
+                        border-color: ShareTheme.border; background: Theme.surface;
+                        VerticalLayout {
+                            padding: 16px; spacing: 10px;
+                            HorizontalLayout {
+                                spacing: 9px;
+                                Icon { source: Icons.document; ink: ShareTheme.accent; width: 18px; }
+                                Text { text: I18n.share-text-title; font-size: 14px; font-weight: 700; color: ShareTheme.ink; vertical-alignment: center; }
+                                Rectangle { horizontal-stretch: 1; }
+                            }
+                            Rectangle {
+                                vertical-stretch: 1; min-height: 76px;
+                                border-radius: 10px; border-width: 1px; border-color: ShareTheme.border; background: Theme.canvas;
+                                draft := TextInput {
+                                    x: 11px; y: 10px;
+                                    width: parent.width - 22px; height: parent.height - 20px;
+                                    text <=> ShareState.draft;
+                                    color: ShareTheme.ink; font-size: 12px;
+                                    wrap: word-wrap; single-line: false;
+                                    accessible-label: I18n.share-text-title;
+                                }
+                                if ShareState.draft == "": Text {
+                                    x: 12px; y: 10px; width: parent.width - 24px;
+                                    text: I18n.share-text-placeholder;
+                                    color: ShareTheme.muted; font-size: 12px; wrap: word-wrap;
+                                }
+                            }
+                            Text { text: I18n.share-text-hint; color: ShareTheme.muted; font-size: 10px; wrap: word-wrap; min-width: 0px; }
+                            ShareAction {
+                                label: I18n.share-save-text; icon: Icons.arrow-right; primary: true; horizontal-stretch: 1;
                                 enabled: ShareState.can-save-text && ShareState.draft != "" && !root.busy;
                                 clicked => { ShareState.save-text(); }
                             }
                         }
-                        Rectangle {
-                            vertical-stretch: 1; min-height: 80px;
-                            border-radius: 8px; border-width: 1px; border-color: Theme.border; background: Theme.canvas;
-                            draft := TextInput {
-                                x: 10px; y: 9px;
-                                width: parent.width - 20px; height: parent.height - 18px;
-                                text <=> ShareState.draft;
-                                color: Theme.ink; font-size: 13px;
-                                wrap: word-wrap; single-line: false;
-                                accessible-label: I18n.share-text-title;
-                            }
-                            if ShareState.draft == "": Text {
-                                x: 11px; y: 9px;
-                                width: parent.width - 22px;
-                                text: I18n.share-text-placeholder;
-                                color: #a3aeb8; font-size: 13px; wrap: word-wrap;
-                            }
-                        }
-                        HorizontalLayout {
-                            spacing: 7px;
-                            Text { text: I18n.share-text-hint; color: Theme.muted; font-size: 10px; vertical-alignment: center; overflow: elide; min-width: 0px; horizontal-stretch: 1; }
-                        }
                     }
                 }
             }
+            SharePanel {
+                horizontal-stretch: 1;
+                rows: ShareState.files; has-files: ShareState.has-files;
+                sharing: ShareState.sharing; busy: root.busy;
+                summary: ShareState.summary; error: ShareState.list-error;
+                folder: ShareState.folder; starting: ShareState.starting;
+                choose-folder => { ShareState.choose-folder(); }
+                open-folder => { ShareState.open-folder(); }
+                view(index) => { ShareState.view(index); }
+                reveal(index) => { ShareState.reveal(index); }
+                remove(index) => { ShareState.remove(index); }
+            }
         }
-        SharePanel {
-            horizontal-stretch: 1;
-            rows: ShareState.files;
-            has-files: ShareState.has-files;
-            sharing: ShareState.sharing;
-            busy: root.busy;
-            summary: ShareState.summary;
-            error: ShareState.list-error;
-            open-folder => { ShareState.open-folder(); }
-            view(index) => { ShareState.view(index); }
-            reveal(index) => { ShareState.reveal(index); }
-            remove(index) => { ShareState.remove(index); }
+        VerticalLayout {
+            spacing: 5px;
+            Text { text: ShareState.sharing && ShareState.reachable ? ShareState.status : I18n.share-footnote; color: ShareTheme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
+            if ShareState.sharing && ShareState.has-other-addresses: Text {
+                text: ShareState.other-addresses; font-size: 10px; color: ShareTheme.muted; wrap: word-wrap; min-width: 0px;
+            }
         }
     }
-    Text { text: ShareState.sharing && ShareState.reachable ? ShareState.status : I18n.share-footnote; color: Theme.muted; font-size: 11px; wrap: word-wrap; min-width: 0px; }
 }

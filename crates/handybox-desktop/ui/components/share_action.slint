@@ -1,0 +1,16 @@
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { ShareTheme } from "share_theme.slint";
+
+// Reuse the standard button's focus, keyboard and accessibility behavior.
+export component ShareAction inherits Action {
+    in property <bool> on-dark: false;
+    ink-color: self.on-dark ? white : self.destructive ? Theme.error : ShareTheme.ink;
+    muted-color: self.ink-color;
+    accent-color: ShareTheme.accent;
+    accent-hover-color: Theme.accent-hover;
+    surface-color: self.on-dark ? #ffffff14 : ShareTheme.canvas;
+    border-ink: self.on-dark ? #ffffff33 : ShareTheme.border;
+    hover-color: self.on-dark ? #ffffff26 : ShareTheme.tint;
+    border-radius: 9px;
+}
