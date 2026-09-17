@@ -15,6 +15,7 @@ Most tools run entirely on your computer. The optional LAN sharing tool lets you
 
 - **Native Rust application:** tool logic is compiled to machine code, with a Slint desktop interface. No Electron, Chromium, or WebView is bundled or required.
 - **Built for performance:** GPU rendering with a software fallback, background file processing, and SIMD-accelerated image resizing with a Lanczos3 filter. Release builds enable full LTO, a single codegen unit, and symbol stripping.
+- **Fast startup:** around **0.30 s** for a routine launch, measured on a MacBook Pro (Apple M5 Pro, macOS 26.5) from process start to the window's first rendered frame of a release build.
 - **No extra application runtime:** packaged builds run without installing Rust, Node.js, Python, Java, or .NET. Windows and Linux packages contain one executable; macOS ships a standard `.app` bundle.
 - **Small distribution:** the current local build artifacts have executables around **25–36 MiB** and ZIP downloads around **11–15 MiB**.
 

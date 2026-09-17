@@ -15,6 +15,7 @@ HandyBox 是一个使用 Rust 和 Slint 构建、以离线使用为主的桌面�
 
 - **原生 Rust 应用：** 工具逻辑编译为机器码，桌面界面使用 Slint；无需打包或安装 Electron、Chromium、WebView。
 - **围绕性能构建：** GPU 渲染与软件渲染回退，后台处理文件，使用 SIMD 加速图片缩放和 Lanczos3 滤波；Release 构建启用完整 LTO、单代码生成单元和符号剥离。
+- **启动快：** 日常启动约 **0.30 秒**，在 MacBook Pro（Apple M5 Pro，macOS 26.5）上实测 Release 构建，计时自进程启动到窗口画出第一帧。
 - **无需额外应用运行时：** 使用打包版本无需安装 Rust、Node.js、Python、Java 或 .NET。Windows 和 Linux 包内只有一个可执行文件，macOS 提供标准 `.app` 应用包。
 - **轻量分发：** 当前本地构建产物的可执行文件约 **25–36 MiB**，ZIP 下载包约 **11–15 MiB**。
 
