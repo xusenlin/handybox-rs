@@ -33,3 +33,4 @@ objc2-foundation = { version = "0.3", default-features = false, features = ["std
 
 [build-dependencies]
 slint-build = "=1.13.1"
+winresource = { version = "0.1.31", default-features = false }

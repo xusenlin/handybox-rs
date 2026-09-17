@@ -78,6 +78,11 @@ tasks:
       - for: [windows-x64.exe, linux-x64]
         cmd: scripts/zip-binary.sh dist/{{.NAME}}-{{.VERSION}}-{{.ITEM}}
 
+  icons:
+    desc: 从 assets/app-icon.png 重新生成 assets/app-icon.ico（改了图标源文件才需要跑；需 macOS）
+    cmds:
+      - scripts/derive-icons.sh
+
   test:
     desc: 运行工作区测试
     cmds:
