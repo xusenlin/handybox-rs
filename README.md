@@ -16,7 +16,7 @@ Most tools run entirely on your computer. The optional LAN sharing tool lets you
 - **Native Rust application:** tool logic is compiled to machine code, with a Slint desktop interface. No Electron, Chromium, or WebView is bundled or required.
 - **Built for performance:** GPU rendering with a software fallback, background file processing, and SIMD-accelerated image resizing with a Lanczos3 filter. Release builds enable full LTO, a single codegen unit, and symbol stripping.
 - **No extra application runtime:** packaged builds run without installing Rust, Node.js, Python, Java, or .NET. Windows and Linux packages contain one executable; macOS ships a standard `.app` bundle.
-- **Small distribution:** the existing local build artifacts have executables around **21–27 MiB** and ZIP downloads around **9–12 MiB**.
+- **Small distribution:** the current local build artifacts have executables around **25–36 MiB** and ZIP downloads around **11–15 MiB**.
 
 ### Binary size
 
@@ -24,11 +24,11 @@ Measured from the existing `0.1.0` archives in `dist/`, using **MiB (1,048,576 b
 
 | Platform | Executable | ZIP package | Build date |
 | --- | ---: | ---: | --- |
-| macOS ARM64 | 24.75 MiB | 10.93 MiB | 2026-09-17 |
-| Windows x64 | 20.77 MiB | 9.05 MiB | 2026-09-15 |
-| Linux x64 | 27.08 MiB | 11.48 MiB | 2026-09-15 |
+| macOS ARM64 | 25.05 MiB | 11.02 MiB | 2026-09-17 |
+| Windows x64 | 29.08 MiB | 11.78 MiB | 2026-09-17 |
+| Linux x64 | 35.65 MiB | 14.31 MiB | 2026-09-17 |
 
-The macOS executable size excludes the app icon and bundle metadata. These artifacts were built on different dates and may contain different feature sets; sizes are reference measurements, not a comparison of identical builds. Rebuilding the current source may change them.
+The macOS executable size excludes the app icon and bundle metadata. These sizes describe the current local packages and may change when the source or toolchain is rebuilt.
 
 “No extra application runtime” still assumes the operating system's libraries and desktop services. The inspected macOS and Windows binaries import system libraries; the Linux binary links to glibc, libm, and libgcc and needs the desktop components described below. The browser page used by LAN sharing opens on the receiving device; the desktop UI itself does not use a WebView.
 
