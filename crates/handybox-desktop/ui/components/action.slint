@@ -17,6 +17,10 @@ export component Action inherits Rectangle {
     in property <color> hover-color: root.quiet ? Theme.tint : Theme.canvas;
     callback clicked();
     private property <color> ink: !root.enabled ? #a0aab2 : root.primary ? white : root.destructive && touch.has-hover ? Theme.error : root.quiet ? root.muted-color : root.ink-color;
+    // The icon follows the label unless a caller wants it to carry the warning
+    // on its own — a red glyph beside a plain label. A disabled button greys
+    // everything, so the override only applies while the button can be pressed.
+    in property <color> icon-ink: root.ink;
     height: 38px;
     min-width: content.min-width;
     // Buttons size to their label. Without this a layout hands them a share of
@@ -33,7 +37,7 @@ export component Action inherits Rectangle {
     accessible-action-default => { if root.enabled { root.clicked(); } }
     content := HorizontalLayout {
         padding-left: 13px; padding-right: 13px; spacing: 7px; alignment: center;
-        if root.icon.width > 0: Icon { source: root.icon; ink: root.ink; width: 15px; }
+        if root.icon.width > 0: Icon { source: root.icon; ink: root.enabled ? root.icon-ink : root.ink; width: 15px; }
         Text {
             text: root.label; horizontal-stretch: 0;
             color: root.ink;

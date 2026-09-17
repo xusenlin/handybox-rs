@@ -15,6 +15,14 @@ export component SharePage inherits Rectangle {
     in property <bool> busy;
     in property <bool> dragging;
     background: ShareTheme.canvas;
+    // The two cards in the left column always stand in a 1.2 : 1 (text : drop)
+    // ratio: giving the text card the leftover height instead made it swallow
+    // the whole window on a full-screen display while the drop card stayed put.
+    // The floor is the shortest the drop card can be drawn at; below it the
+    // column keeps that height and the ScrollView scrolls.
+    property <length> stack-gap: 16px;
+    property <length> drop-floor: 200px;
+    property <length> stack-height: max(controls.visible-height, root.drop-floor * 2.2 + root.stack-gap);
     VerticalLayout {
         padding: 24px; spacing: 16px;
         HorizontalLayout {
@@ -25,6 +33,9 @@ export component SharePage inherits Rectangle {
                 ShareAction {
                     label: ShareState.sharing ? I18n.share-stop : I18n.share-start;
                     icon: ShareState.sharing ? Icons.stop : Icons.play;
+                    // Starting is the primary (white-on-accent) button; stopping
+                    // is a plain one, so the stop square carries the warning.
+                    icon-ink: ShareState.sharing ? Theme.error : white;
                     primary: !ShareState.sharing;
                     enabled: !root.busy && !ShareState.starting;
                     clicked => { if ShareState.sharing { ShareState.stop(); } else { ShareState.start(); } }
@@ -48,11 +59,12 @@ export component SharePage inherits Rectangle {
             controls := ScrollView {
                 width: 300px; horizontal-stretch: 0;
                 viewport-width: self.visible-width;
-                viewport-height: max(self.visible-height, left-column.preferred-height);
+                viewport-height: root.stack-height;
                 left-column := VerticalLayout {
                     width: controls.visible-width; height: controls.viewport-height;
-                    spacing: 16px; padding-right: 12px;
+                    spacing: root.stack-gap; padding-right: 12px;
                     DropZone {
+                        height: (root.stack-height - root.stack-gap) / 2.2;
                         sharing: ShareState.sharing;
                         busy: root.busy;
                         dragging: root.dragging;

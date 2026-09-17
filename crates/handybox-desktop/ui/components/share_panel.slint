@@ -101,22 +101,28 @@ export component SharePanel inherits Rectangle {
                         background: hover.has-hover ? ShareTheme.tint : Theme.canvas;
                     }
                     hover := TouchArea { mouse-cursor: default; }
+                    // The card is centred in the row, so the padding has to be
+                    // symmetric as well — an uneven one lifted every row's
+                    // contents above the middle of the card behind them.
                     HorizontalLayout {
-                        padding: 10px; padding-bottom: 18px; spacing: 12px;
-                        Rectangle {
-                            width: 40px; height: 46px; border-radius: 11px;
-                            background: row.is-text ? Theme.tint : #eceff3;
-                            y: (parent.height - self.height - 8px) / 2;
-                            VerticalLayout {
-                                padding: 5px; spacing: 3px;
-                                HorizontalLayout {
-                                    alignment: center;
-                                    Icon { source: Icons.document; ink: row.is-text ? ShareTheme.accent : Theme.muted; width: 20px; height: 22px; }
-                                }
-                                Text {
-                                    text: row.tag; font-size: 8px; font-weight: 600;
-                                    color: row.is-text ? ShareTheme.accent : Theme.muted;
-                                    horizontal-alignment: center; overflow: clip; min-width: 0px;
+                        padding: 14px; spacing: 12px;
+                        // A fixed-size child is not centred on the cross axis.
+                        VerticalLayout {
+                            alignment: center; horizontal-stretch: 0;
+                            Rectangle {
+                                width: 40px; height: 46px; border-radius: 11px;
+                                background: row.is-text ? Theme.tint : #eceff3;
+                                VerticalLayout {
+                                    padding: 5px; spacing: 3px;
+                                    HorizontalLayout {
+                                        alignment: center;
+                                        Icon { source: Icons.document; ink: row.is-text ? ShareTheme.accent : Theme.muted; width: 20px; height: 22px; }
+                                    }
+                                    Text {
+                                        text: row.tag; font-size: 8px; font-weight: 600;
+                                        color: row.is-text ? ShareTheme.accent : Theme.muted;
+                                        horizontal-alignment: center; overflow: clip; min-width: 0px;
+                                    }
                                 }
                             }
                         }
