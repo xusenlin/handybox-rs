@@ -276,41 +276,13 @@ impl Tools {
         self.share.relanguage(shell);
     }
 
-    /// Hand a file to the tool that handles it. The extension is all there is to
-    /// go on before reading it, and it is enough to tell these apart — except
-    /// for the two tools that take any file at all: the crypto tool, and the
-    /// diff tool, whose input is whatever text you put beside another text.
-    /// While one of their pages is showing, a dropped file is its input rather
-    /// than something to route away.
-    fn open(&self, shell: &Shell, path: PathBuf) {
-        // The LAN share tool claims first, and only while it is actually
-        // sharing: with a folder open to the network, a dropped file has an
-        // obvious destination, and that destination outranks every rule below.
-        if self.share.claims(shell) {
-            return self.share.open(shell, vec![path]);
-        }
-        // A folder means something to three tools now, so the page that is
-        // showing decides: the image studio lists the pictures in it, Archives
-        // packs it, and Disk cleanup — which is what a folder means everywhere
-        // else — reads it.
+    /// Hand a path named on the command line to the tool that handles it. There
+    /// is no page in front yet, so the extension is all there is to go on before
+    /// reading the file — and it is enough to tell these apart. A folder means a
+    /// disk scan, which is what a folder means when nothing says otherwise.
+    fn route(&self, shell: &Shell, path: PathBuf) {
         if path.is_dir() {
-            if shell.showing("images") {
-                self.images.open(shell, path);
-            } else if shell.showing("archives") {
-                self.archives.open(shell, path);
-            } else {
-                self.cleanup.open(shell, path);
-            }
-        } else if shell.showing("crypto") {
-            self.crypto.open(shell, path, None);
-        // Two tools take a picture, so the page that is showing decides which
-        // one a dropped image belongs to; the barcode reader keeps the claim
-        // when neither is on screen, because reading a code off a picture is
-        // the answer to a question, and opening it is not.
-        } else if shell.showing("images") && core_images::claims(&path) {
-            self.images.open(shell, path);
-        } else if shell.showing("diff") {
-            self.diff.open(shell, path);
+            self.cleanup.open(shell, path);
         } else if core_crypto::claims(&path) {
             self.crypto.open(shell, path, Some(crypto::Mode::Decrypt));
         } else if core_archives::claims(&path) {
@@ -321,6 +293,45 @@ impl Tools {
             self.json.open(shell, path);
         } else {
             self.documents.convert(shell, path);
+        }
+    }
+
+    /// Hand a drop to the tool whose page is showing, and to no other. A tool
+    /// that is not in front never starts work off screen: a document dropped on
+    /// the barcode reader is a mistake to say out loud, not a conversion to
+    /// begin somewhere the user is not looking.
+    ///
+    /// Only the LAN share tool takes the whole selection; every other tool works
+    /// on one path, except Text diff, where two paths are the comparison the
+    /// drop described.
+    fn dropped(&self, shell: &Shell, paths: Vec<PathBuf>) {
+        let Some(path) = paths.first().cloned() else {
+            return;
+        };
+        let folder = path.is_dir();
+        if shell.showing("share") {
+            self.share.open(shell, paths);
+        } else if shell.showing("diff") && !folder {
+            match paths.as_slice() {
+                [left, right, ..] => self.diff.open_pair(shell, left.clone(), right.clone()),
+                _ => self.diff.open(shell, path),
+            }
+        } else if shell.showing("crypto") && !folder {
+            self.crypto.open(shell, path, None);
+        } else if shell.showing("documents") && !folder {
+            self.documents.convert(shell, path);
+        } else if shell.showing("json") && !folder {
+            self.json.open(shell, path);
+        } else if shell.showing("codes") && core_codes::claims(&path) {
+            self.codes.open(shell, path);
+        } else if shell.showing("images") && (folder || core_images::claims(&path)) {
+            self.images.open(shell, path);
+        } else if shell.showing("archives") && (folder || core_archives::claims(&path)) {
+            self.archives.open(shell, path);
+        } else if shell.showing("cleanup") && folder {
+            self.cleanup.open(shell, path);
+        } else {
+            shell.notify(Message::Error(Failure::wrong_page(folder)));
         }
     }
 }
@@ -399,9 +410,14 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
         }
     });
 
-    // A file dropped anywhere in the window opens in the tool that handles it,
-    // whichever page is showing, so the route follows the file.
-    let (bound, dropped, weak) = (shell.clone(), tools.clone(), ui.as_weak());
+    // A file dropped anywhere in the window belongs to the page that is
+    // showing. A selection of several files arrives as one event per file,
+    // all in the same turn of the event loop, so the paths are only collected
+    // here; the timer below hands over whatever a drop left behind. Acting on
+    // the first event instead would take the busy state and leave the rest of
+    // the selection nowhere.
+    let batch: Rc<RefCell<Vec<PathBuf>>> = Rc::new(RefCell::new(Vec::new()));
+    let (dropping, weak) = (batch.clone(), ui.as_weak());
     ui.window().on_winit_window_event(move |_, event| {
         let Some(ui) = weak.upgrade() else {
             return EventResult::Propagate;
@@ -412,7 +428,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
             WindowEvent::DroppedFile(path) => {
                 ui.set_dragging(false);
                 if !ui.get_busy() {
-                    dropped.open(&bound, path.clone());
+                    dropping.borrow_mut().push(path.clone());
                 }
             }
             _ => {}
@@ -421,7 +437,7 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
     });
 
     match initial.as_slice() {
-        [file] => tools.open(&shell, file.clone()),
+        [file] => tools.route(&shell, file.clone()),
         [left, right] => tools.diff.open_pair(&shell, left.clone(), right.clone()),
         _ => {}
     }
@@ -435,6 +451,13 @@ pub fn bind(ui: &AppWindow, initial: Vec<PathBuf>) -> anyhow::Result<Timer> {
             tools.handle(&shell, event);
         }
         tools.tick(&shell);
+        // Whatever the last drop left behind, as one selection. Taken after the
+        // worker's events, so an operation that just finished has already
+        // released the busy state the drop is about to need.
+        let paths = std::mem::take(&mut *batch.borrow_mut());
+        if !paths.is_empty() {
+            tools.dropped(&shell, paths);
+        }
     });
     Ok(timer)
 }

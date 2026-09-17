@@ -21,7 +21,6 @@ export component SharePanel inherits Rectangle {
     in property <bool> busy;
     in property <string> summary;
     in property <string> error;
-    callback choose-files();
     callback open-folder();
     callback view(int);
     callback reveal(int);
@@ -39,9 +38,11 @@ export component SharePanel inherits Rectangle {
             }
             Rectangle { horizontal-stretch: 1; }
         }
+        // Adding files belongs to the drop card beside this list, which is both
+        // the drop target and the file picker; what is left here is the way out
+        // to the folder itself.
         HorizontalLayout {
             spacing: 10px;
-            Action { primary: true; label: I18n.share-add-files; icon: Icons.file-import; enabled: root.sharing && !root.busy; clicked => { root.choose-files(); } }
             Action { quiet: true; label: I18n.share-open-folder; icon: Icons.folder; enabled: !root.busy; clicked => { root.open-folder(); } }
             Rectangle { horizontal-stretch: 1; }
         }

@@ -4,6 +4,7 @@ import { Theme } from "../theme.slint";
 import { PageHeader } from "../components/page_header.slint";
 import { AddressCard } from "../components/address_card.slint";
 import { SharePanel } from "../components/share_panel.slint";
+import { DropZone } from "../components/drop_zone.slint";
 import { Action } from "../components/action.slint";
 import { Icon } from "../components/icon.slint";
 import { Icons } from "../icons.slint";
@@ -29,6 +30,9 @@ export component SharePage inherits VerticalLayout {
             left-column := VerticalLayout {
                 width: controls.visible-width; height: controls.viewport-height;
                 spacing: 24px;
+                // The scroll bar is drawn over the viewport, so the cards stop
+                // short of it rather than having a bar lie across their border.
+                padding-right: 14px;
                 AddressCard {
                     sharing: ShareState.sharing;
                     starting: ShareState.starting;
@@ -47,13 +51,21 @@ export component SharePage inherits VerticalLayout {
                     copy-address => { ShareState.copy-address(); }
                     open-browser => { ShareState.open-browser(); }
                 }
+                // Files arrive here, and only here: the drop is a copy into the
+                // shared folder, which has nothing to do with the text box below.
+                DropZone {
+                    sharing: ShareState.sharing;
+                    busy: root.busy;
+                    dragging: root.dragging;
+                    choose => { ShareState.choose-files(); }
+                }
                 // Text goes in as a .txt, so that the other device gets one kind of
                 // thing to download rather than two kinds of thing to understand.
                 Rectangle {
                     vertical-stretch: 1; min-height: 206px;
                     border-radius: Theme.radius; border-width: 1px;
-                    border-color: root.dragging ? Theme.accent : Theme.border;
-                    background: root.dragging ? Theme.tint : Theme.surface;
+                    border-color: Theme.border;
+                    background: Theme.surface;
                     VerticalLayout {
                         padding: 22px; spacing: 16px;
                         HorizontalLayout {
@@ -81,7 +93,7 @@ export component SharePage inherits VerticalLayout {
                             if ShareState.draft == "": Text {
                                 x: 11px; y: 9px;
                                 width: parent.width - 22px;
-                                text: root.dragging ? I18n.share-drop : I18n.share-text-placeholder;
+                                text: I18n.share-text-placeholder;
                                 color: #a3aeb8; font-size: 13px; wrap: word-wrap;
                             }
                         }
@@ -101,7 +113,6 @@ export component SharePage inherits VerticalLayout {
             busy: root.busy;
             summary: ShareState.summary;
             error: ShareState.list-error;
-            choose-files => { ShareState.choose-files(); }
             open-folder => { ShareState.open-folder(); }
             view(index) => { ShareState.view(index); }
             reveal(index) => { ShareState.reveal(index); }

@@ -156,10 +156,15 @@ pub enum FailureKind {
     Image(ImageIssue),
     Archive(ArchiveIssue),
     Share(ShareIssue),
-    /// An action that only means anything while sharing was asked for after it
-    /// stopped. Its own kind rather than a `ShareIssue`, because nothing in the
-    /// engine can produce it: it is about what the desktop was doing.
+    /// An action that only means anything while sharing was asked for while it
+    /// was not running. Its own kind rather than a `ShareIssue`, because nothing
+    /// in the engine can produce it: it is about what the desktop was doing.
     NotSharing,
+    /// Something was dropped on a page that cannot take it. Also the desktop's
+    /// own: nothing was read, so no engine had an opinion about it.
+    WrongPage {
+        folder: bool,
+    },
     /// The OS clipboard could not be reached at all — which any tool can run
     /// into, because every one of them can copy its result.
     ClipboardAccess,
@@ -279,6 +284,14 @@ impl Failure {
     pub fn not_sharing() -> Self {
         Self {
             kind: FailureKind::NotSharing,
+            detail: String::new(),
+        }
+    }
+
+    /// A drop the page in front has no use for.
+    pub fn wrong_page(folder: bool) -> Self {
+        Self {
+            kind: FailureKind::WrongPage { folder },
             detail: String::new(),
         }
     }
@@ -504,8 +517,20 @@ impl Failure {
             .into(),
             FailureKind::NotSharing => lang
                 .text(
-                    "Sharing has stopped. Start it again to use the shared folder.",
-                    "共享已停止。请重新开始共享后再操作。",
+                    "Sharing is not running. Start it to use the shared folder.",
+                    "当前未在共享。请先开始共享，再使用共享文件夹。",
+                )
+                .into(),
+            FailureKind::WrongPage { folder: true } => lang
+                .text(
+                    "This tool does not take a folder. Image studio, Archives and Disk cleanup do.",
+                    "当前工具不接受文件夹。可以拖到图片工作台、压缩包或磁盘清理。",
+                )
+                .into(),
+            FailureKind::WrongPage { folder: false } => lang
+                .text(
+                    "This tool does not take that file. Open the tool that does, then drop it there.",
+                    "当前工具不接受该文件。请先打开对应的工具，再把它拖到那里。",
                 )
                 .into(),
             FailureKind::ClipboardAccess => lang
@@ -1204,6 +1229,23 @@ mod tests {
         assert!(english.contains("2.0 MiB") && english.contains("Skipped 1"));
         let chinese = notice.render(Language::Chinese);
         assert!(chinese.contains("3 个文件移到回收站") && chinese.contains("已跳过 1"));
+    }
+
+    #[test]
+    fn drops_the_page_in_front_cannot_take_say_what_to_do_instead() {
+        // The two failures no engine can produce: both are about what the
+        // desktop was showing when the file arrived, so both have to name the
+        // way out rather than only refuse.
+        let stopped = Failure::not_sharing();
+        assert!(!stopped.about_input());
+        assert!(stopped.render(Language::English).contains("Start it"));
+        assert!(stopped.render(Language::Chinese).contains("请先开始共享"));
+        let file = Failure::wrong_page(false);
+        assert!(file.render(Language::English).contains("Open the tool"));
+        assert!(file.render(Language::Chinese).contains("打开对应的工具"));
+        let folder = Failure::wrong_page(true);
+        assert!(folder.render(Language::English).contains("Disk cleanup"));
+        assert!(folder.render(Language::Chinese).contains("磁盘清理"));
     }
 
     #[test]

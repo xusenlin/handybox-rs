@@ -109,7 +109,9 @@ cargo run --locked -- /path/to/folder
 
 These arguments open the desktop interface. A single image normally opens in the barcode reader, `.json` in the JSON workbench, `.age` in decryption mode, and `.zip` / `.7z` in Archives. Two paths open Text diff.
 
-Drag and drop also follows the active tool: Image studio accepts images and folders, Archives accepts folders to pack, and Hash & encrypt and Text diff accept files directly. While the LAN share page is active and sharing is running, dropped files are added to the shared folder.
+Drag and drop belongs to the tool on screen, and only to it: no tool starts work on a page you are not looking at. Documents, Hash & encrypt, the JSON workbench and Text diff take files; the barcode reader takes images; Image studio takes images and folders; Archives takes archives and folders to pack; Disk cleanup takes folders; and Text diff takes two files at once as a comparison. If the tool on screen cannot use what you dropped, it says so instead of sending the file elsewhere.
+
+While the LAN share page is showing and sharing is running, dropped files — a whole selection at a time — are added to the shared folder. Folders have to be compressed first, and nothing is added while sharing is stopped.
 
 ### Share with another device
 

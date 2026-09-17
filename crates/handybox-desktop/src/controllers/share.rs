@@ -195,11 +195,14 @@ impl Controller {
         });
     }
 
-    /// Adopt files the user already chose, from a drop or the command line. Only
-    /// while sharing: putting a file into a folder nobody is serving would look
-    /// like it had been sent somewhere.
+    /// Adopt a selection the user already chose: a drop on this page, or the
+    /// files picker. The whole selection goes in at once, because a drop of ten
+    /// files is one thing the user did.
+    ///
+    /// Only while sharing: putting a file into a folder nobody is serving would
+    /// look like it had been sent somewhere. Said plainly instead, since the
+    /// page in front is this one and nothing else is going to take the file.
     pub fn open(&self, shell: &Shell, paths: Vec<PathBuf>) {
-        shell.navigate("share");
         if !self.state.borrow().sharing {
             return shell.notify(Message::Error(Failure::not_sharing()));
         }
@@ -213,13 +216,6 @@ impl Controller {
             ))));
         }
         shell.submit(Command::Share(Job::Import(files)), Message::Saving);
-    }
-
-    /// Whether a dropped file belongs to this tool right now. Only while the
-    /// page is showing *and* sharing is on — the same rule the crypto and diff
-    /// tools use, narrowed by the fact that this one has somewhere to put it.
-    pub fn claims(&self, shell: &Shell) -> bool {
-        shell.showing("share") && self.state.borrow().sharing
     }
 
     pub fn handle(&self, shell: &Shell, event: Event) {

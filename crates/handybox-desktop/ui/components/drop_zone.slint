@@ -1,0 +1,178 @@
+import { I18n } from "../i18n.slint";
+import { Theme } from "../theme.slint";
+import { Action } from "action.slint";
+import { Icon } from "icon.slint";
+import { Icons } from "../icons.slint";
+
+// Two dashes along one rounded corner, carrying the edges' rhythm around the
+// arc instead of leaving the radius bare. Drawn as a stroked path because a
+// rectangle cannot be bent and Slint cannot rotate one.
+//
+// The whole card is this element's coordinate system — `cx`/`cy` are the centre
+// of curvature in it — so the four corners differ only by that centre and by
+// which quarter turn they cover.
+component CornerDashes inherits Path {
+    in property <length> weight;
+    in property <length> radius;
+    in property <float> cx;
+    in property <float> cy;
+    in property <angle> quarter-from;
+    in property <angle> arc-dash;
+    in property <angle> arc-gap;
+    // The stroke is centred on the path, and the straight dashes sit inside the
+    // edge, so the arc is drawn half a stroke in as well.
+    property <float> reach: (root.radius - root.weight / 2) / 1px;
+    // What is left of the quarter turn once two dashes and the gap between them
+    // are taken out, split between its two ends.
+    property <angle> lead: max(0deg, (90deg - 2 * root.arc-dash - root.arc-gap) / 2);
+    property <angle> a-from: root.quarter-from + root.lead;
+    property <angle> a-to: root.a-from + root.arc-dash;
+    property <angle> b-to: root.quarter-from + 90deg - root.lead;
+    property <angle> b-from: root.b-to - root.arc-dash;
+    stroke-width: root.weight; stroke-line-cap: round;
+    viewbox-width: self.width / 1px;
+    viewbox-height: self.height / 1px;
+    MoveTo { x: root.cx + root.reach * cos(root.a-from); y: root.cy + root.reach * sin(root.a-from); }
+    ArcTo {
+        x: root.cx + root.reach * cos(root.a-to); y: root.cy + root.reach * sin(root.a-to);
+        radius-x: root.reach; radius-y: root.reach; sweep: true;
+    }
+    MoveTo { x: root.cx + root.reach * cos(root.b-from); y: root.cy + root.reach * sin(root.b-from); }
+    ArcTo {
+        x: root.cx + root.reach * cos(root.b-to); y: root.cy + root.reach * sin(root.b-to);
+        radius-x: root.reach; radius-y: root.reach; sweep: true;
+    }
+}
+
+// Slint has no dashed border, so this one is drawn: every edge is a row of short
+// rectangles, each edge dividing itself into whole dashes so the rhythm survives
+// any width, and every corner is two dashes bent along its arc.
+component DashedOutline inherits Rectangle {
+    in property <color> ink;
+    in property <length> weight: 1.5px;
+    in property <length> dash: 6px;
+    in property <length> gap: 5px;
+    in property <length> radius: Theme.radius;
+
+    // Where a straight edge starts: past the arc, and half a gap beyond it, so
+    // the corner's last dash and the edge's first one keep their distance.
+    property <length> inset: root.radius + root.gap / 2;
+    property <length> span-x: max(0px, self.width - 2 * root.inset);
+    property <length> span-y: max(0px, self.height - 2 * root.inset);
+    property <int> across: max(1, round(root.span-x / (root.dash + root.gap)));
+    property <int> down: max(1, round(root.span-y / (root.dash + root.gap)));
+    property <length> dash-x: max(1px, root.span-x / root.across - root.gap);
+    property <length> dash-y: max(1px, root.span-y / root.down - root.gap);
+    // A dash and a gap as slices of a quarter turn, so a corner is dashed at the
+    // same pitch as the edges leading into it. 1.5708 is a quarter of τ: the arc
+    // is that many radii long.
+    property <angle> arc-dash: 90deg * (root.dash / (root.radius * 1.5708));
+    property <angle> arc-gap: 90deg * (root.gap / (root.radius * 1.5708));
+
+    for i in root.across: Rectangle {
+        x: root.inset + i * (root.dash-x + root.gap);
+        width: root.dash-x; height: root.weight;
+        y: 0px; background: root.ink; border-radius: root.weight / 2;
+    }
+    for i in root.across: Rectangle {
+        x: root.inset + i * (root.dash-x + root.gap);
+        width: root.dash-x; height: root.weight;
+        y: parent.height - root.weight; background: root.ink; border-radius: root.weight / 2;
+    }
+    for i in root.down: Rectangle {
+        y: root.inset + i * (root.dash-y + root.gap);
+        width: root.weight; height: root.dash-y;
+        x: 0px; background: root.ink; border-radius: root.weight / 2;
+    }
+    for i in root.down: Rectangle {
+        y: root.inset + i * (root.dash-y + root.gap);
+        width: root.weight; height: root.dash-y;
+        x: parent.width - root.weight; background: root.ink; border-radius: root.weight / 2;
+    }
+    CornerDashes {
+        width: parent.width; height: parent.height;
+        stroke: root.ink; weight: root.weight; radius: root.radius;
+        arc-dash: root.arc-dash; arc-gap: root.arc-gap;
+        cx: root.radius / 1px; cy: root.radius / 1px; quarter-from: 180deg;
+    }
+    CornerDashes {
+        width: parent.width; height: parent.height;
+        stroke: root.ink; weight: root.weight; radius: root.radius;
+        arc-dash: root.arc-dash; arc-gap: root.arc-gap;
+        cx: (parent.width - root.radius) / 1px; cy: root.radius / 1px; quarter-from: 270deg;
+    }
+    CornerDashes {
+        width: parent.width; height: parent.height;
+        stroke: root.ink; weight: root.weight; radius: root.radius;
+        arc-dash: root.arc-dash; arc-gap: root.arc-gap;
+        cx: (parent.width - root.radius) / 1px; cy: (parent.height - root.radius) / 1px; quarter-from: 0deg;
+    }
+    CornerDashes {
+        width: parent.width; height: parent.height;
+        stroke: root.ink; weight: root.weight; radius: root.radius;
+        arc-dash: root.arc-dash; arc-gap: root.arc-gap;
+        cx: root.radius / 1px; cy: (parent.height - root.radius) / 1px; quarter-from: 90deg;
+    }
+}
+
+// Where files go into the shared folder: the one surface on the LAN share page
+// that takes a drop, dashed so that it says so before anything is dragged over
+// it. The page it serves to a phone draws the same card, so the two faces of
+// this tool look like the same tool.
+//
+// Nothing lands here while sharing is stopped — the folder is not open to
+// anyone — so the card says what is missing rather than inviting a drop it
+// would have to refuse.
+export component DropZone inherits Rectangle {
+    in property <bool> sharing;
+    in property <bool> busy;
+    in property <bool> dragging;
+    callback choose();
+    // Sized by what is in it rather than by a number, so the padding below is
+    // the only thing deciding how much air the card has. Without the stretch a
+    // layout would hand it a share of the leftover height as well.
+    vertical-stretch: 0;
+    border-radius: Theme.radius;
+    background: root.dragging && root.sharing ? Theme.tint : Theme.surface;
+
+    DashedOutline {
+        width: parent.width; height: parent.height;
+        radius: root.border-radius;
+        ink: root.dragging ? (root.sharing ? Theme.accent : Theme.error) : Theme.border.darker(0.22);
+    }
+    VerticalLayout {
+        padding: 24px; spacing: 13px; alignment: center;
+        // A fixed-size child is not centred on the cross axis, so the tile is
+        // wrapped in a row that is.
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 44px; height: 44px; border-radius: 12px;
+                background: root.dragging && root.sharing ? Theme.surface : Theme.tint;
+                Icon { source: Icons.upload; ink: Theme.accent; width: 24px; height: 24px; }
+            }
+        }
+        Text {
+            text: root.dragging
+                ? (root.sharing ? I18n.share-drop : I18n.share-drop-stopped)
+                : I18n.share-drop-title;
+            color: Theme.ink; font-size: 15px; font-weight: 600;
+            horizontal-alignment: center; wrap: word-wrap; min-width: 0px;
+        }
+        Text {
+            text: root.sharing ? I18n.share-drop-hint : I18n.share-drop-idle-hint;
+            color: Theme.muted; font-size: 11px;
+            horizontal-alignment: center; wrap: word-wrap; min-width: 0px;
+        }
+        // The picker is the fallback to the drop, so it keeps a button's own
+        // width and sits under the prompt rather than spanning the card.
+        HorizontalLayout {
+            alignment: center;
+            Action {
+                label: I18n.share-add-files; icon: Icons.file-import;
+                enabled: root.sharing && !root.busy;
+                clicked => { root.choose(); }
+            }
+        }
+    }
+}

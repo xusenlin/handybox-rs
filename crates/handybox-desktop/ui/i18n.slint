@@ -276,7 +276,13 @@ export global I18n {
     out property <string> share-text-placeholder: chinese ? "粘贴链接、随手记的内容，或任何想发到另一台设备的文字…" : "Paste a link, a note, or anything you want on the other device…";
     out property <string> share-text-hint: chinese ? "保存为 .txt  ·  不超过 1 MiB" : "Saved as a .txt  ·  up to 1 MiB";
     out property <string> share-save-text: chinese ? "共享文字" : "Share text";
+    out property <string> share-drop-title: chinese ? "把文件拖到这里" : "Drop files here";
+    // The wording the served page uses for the same card, so a phone and this
+    // window say the same thing about the same folder.
+    out property <string> share-drop-hint: chinese ? "支持多个文件  ·  单个不超过 10 GiB" : "Multiple files  ·  up to 10 GiB each";
+    out property <string> share-drop-idle-hint: chinese ? "开始共享后即可拖入文件" : "Files can be dropped once sharing starts";
     out property <string> share-drop: chinese ? "松开以共享这些文件" : "Drop to share these files";
+    out property <string> share-drop-stopped: chinese ? "请先开始共享，再放下这些文件" : "Start sharing first, then drop these files";
     out property <string> share-idle-title: chinese ? "先选好文件夹，再开始" : "Choose a folder, then start";
     out property <string> share-idle-hint: chinese ? "开始共享后，这个文件夹里的内容会显示在这里，\n同一网络下的设备可以取走，也可以放进来。" : "Once sharing starts, what is in the folder appears here —\nready for another device to take, or to add to.";
     out property <string> share-empty-title: chinese ? "还没有可共享的内容" : "Nothing shared yet";
