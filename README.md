@@ -34,16 +34,11 @@ The macOS executable size excludes the app icon and bundle metadata. These artif
 
 ## Screenshots
 
-> Screenshots coming soon: app overview, image studio, and LAN sharing.
-
-<!--
-Add English screenshots to docs/screenshots/en/, then replace the placeholder
-above with the image references below (move them outside this comment).
-
-![HandyBox overview](docs/screenshots/en/overview.png)
-![Image studio](docs/screenshots/en/images.png)
-![LAN sharing](docs/screenshots/en/share.png)
--->
+| Document conversion | Image studio |
+| --- | --- |
+| ![Convert documents to Markdown](docs/screenshots/en/doc.png) | ![Process and export images](docs/screenshots/en/images.png) |
+| **Disk cleanup** | **LAN sharing** |
+| ![Find duplicate, empty, and large files](docs/screenshots/en/disk.png) | ![Share files and text over the local network](docs/screenshots/en/lan.png) |
 
 ## Tools
 

@@ -34,16 +34,11 @@ macOS 可执行文件大小不包含应用图标和包元数据。这些产物�
 
 ## 界面截图
 
-> 截图待补充：应用概览、图片工坊、局域网共享。
-
-<!--
-将中文截图放入 docs/screenshots/zh-CN/，再用下面的图片引用替换上方占位文字
-（将图片引用移到注释外即可）。
-
-![HandyBox 应用概览](docs/screenshots/zh-CN/overview.png)
-![图片工坊](docs/screenshots/zh-CN/images.png)
-![局域网共享](docs/screenshots/zh-CN/share.png)
--->
+| 文档转换 | 图片处理 |
+| --- | --- |
+| ![将文档转换为 Markdown](docs/screenshots/zh-CN/doc.png) | ![处理和导出图片](docs/screenshots/zh-CN/image.png) |
+| **磁盘清理** | **局域网共享** |
+| ![查找重复文件、空文件和大文件](docs/screenshots/zh-CN/disk.png) | ![通过局域网共享文件和文字](docs/screenshots/zh-CN/lan.png) |
 
 ## 功能
 
