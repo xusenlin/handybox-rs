@@ -198,7 +198,7 @@ mod tests {
         std::fs::create_dir(&into).unwrap();
 
         let batch = run(
-            &[source.clone()],
+            std::slice::from_ref(&source),
             &Recipe::default(),
             &into,
             &AtomicBool::new(false),

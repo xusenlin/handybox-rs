@@ -126,10 +126,10 @@ impl Controller {
         view.on_swap(move || controller.swap(&bound));
         let (bound, controller) = (shell.clone(), self.clone());
         view.on_copy(move || {
-            if let Some(outcome) = controller.state.borrow().outcome() {
-                if !outcome.unified.is_empty() {
-                    bound.submit(Command::Copy(outcome.unified.clone()), Message::Copying);
-                }
+            if let Some(outcome) = controller.state.borrow().outcome()
+                && !outcome.unified.is_empty()
+            {
+                bound.submit(Command::Copy(outcome.unified.clone()), Message::Copying);
             }
         });
         let (bound, controller) = (shell.clone(), self.clone());

@@ -58,7 +58,7 @@ The macOS executable size excludes the app icon and bundle metadata. These sizes
 
 ## Run from source
 
-Install Rust through rustup and the native build tools for your platform. The repository pins **Rust 1.88.0** in `rust-toolchain.toml`; rustup selects it when you work in this directory.
+Install Rust through rustup and the native build tools for your platform. The repository pins **Rust 1.98.1** in `rust-toolchain.toml`; rustup selects it when you work in this directory.
 
 - **macOS:** install Xcode Command Line Tools with `xcode-select --install`.
 - **Windows:** install Visual Studio Build Tools with the Desktop development with C++ workload for the MSVC Rust toolchain.

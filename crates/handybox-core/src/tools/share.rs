@@ -746,8 +746,8 @@ pub fn qr(url: &str, ink: [u8; 3]) -> Result<Qr> {
             }
             for dy in 0..scale {
                 let start = ((margin + y * scale + dy) * size + margin + x * scale) * 4;
-                for pixel in rgba[start..start + scale * 4].chunks_exact_mut(4) {
-                    pixel.copy_from_slice(&dot);
+                for pixel in rgba[start..start + scale * 4].as_chunks_mut::<4>().0 {
+                    *pixel = dot;
                 }
             }
         }
@@ -1342,7 +1342,12 @@ mod tests {
         let drawn = qr("http://192.168.1.23:8765", [60, 82, 115]).unwrap();
         assert_eq!(drawn.rgba.len(), (drawn.size * drawn.size * 4) as usize);
         assert!(
-            drawn.rgba.chunks_exact(4).any(|pixel| pixel[3] == 255),
+            drawn
+                .rgba
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .any(|pixel| pixel[3] == 255),
             "the code has to have drawn something"
         );
         assert!(qr(&"x".repeat(8000), [0, 0, 0]).is_err());
@@ -1358,7 +1363,9 @@ mod tests {
             let margin = 4 * scale;
             let opaque: Vec<_> = drawn
                 .rgba
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .enumerate()
                 .filter_map(|(i, p)| (p[3] != 0).then_some((i % size, i / size)))
                 .collect();
@@ -1371,7 +1378,9 @@ mod tests {
             );
             let luma = drawn
                 .rgba
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .map(|p| {
                     if p[3] == 0 {
                         255

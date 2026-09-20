@@ -467,7 +467,7 @@ fn duplicates(walk: &mut Walk) -> (Vec<Entry>, u32, u64) {
         .collect();
     // Largest first: a scan that runs out of budget should have spent it where
     // the space actually is.
-    candidates.sort_by(|a, b| b.0.cmp(&a.0));
+    candidates.sort_by_key(|(size, _)| std::cmp::Reverse(*size));
 
     let mut sets: Vec<(u64, Vec<PathBuf>)> = Vec::new();
     for (size, paths) in candidates {

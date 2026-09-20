@@ -58,7 +58,7 @@ macOS 可执行文件大小不包含应用图标和包元数据。这些数据�
 
 ## 从源码运行
 
-通过 rustup 安装 Rust，并准备对应平台的本机构建工具。仓库在 `rust-toolchain.toml` 中固定使用 **Rust 1.88.0**，进入项目目录后 rustup 会选择该版本。
+通过 rustup 安装 Rust，并准备对应平台的本机构建工具。仓库在 `rust-toolchain.toml` 中固定使用 **Rust 1.98.1**，进入项目目录后 rustup 会选择该版本。
 
 - **macOS：** 执行 `xcode-select --install` 安装 Xcode Command Line Tools。
 - **Windows：** 使用 MSVC Rust 工具链时，安装 Visual Studio Build Tools，并勾选“使用 C++ 的桌面开发”工作负载。

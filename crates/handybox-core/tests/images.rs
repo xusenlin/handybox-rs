@@ -390,7 +390,9 @@ fn previews_fit_portraits_panoramas_and_transparent_images() {
             picture
                 .preview
                 .rgba
-                .chunks_exact(4)
+                .as_chunks::<4>()
+                .0
+                .iter()
                 .all(|p| p[3] == 128 && p[2].abs_diff(224) <= 2)
         );
     }

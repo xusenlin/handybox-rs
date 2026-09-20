@@ -586,10 +586,9 @@ fn encode(image: &DynamicImage, recipe: &Recipe) -> Result<Vec<u8>> {
                 if let Ok(smaller) = oxipng::optimize_from_memory(
                     &bytes,
                     &oxipng::Options::from_preset(OPTIMIZE_LEVEL),
-                ) {
-                    if smaller.len() < bytes.len() {
-                        bytes = smaller;
-                    }
+                ) && smaller.len() < bytes.len()
+                {
+                    bytes = smaller;
                 }
             }
         }
